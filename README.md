@@ -1,6 +1,7 @@
 # 🧉 Chimas 
 
-A web application to parse and analyse Snaffler output providing filtering capabilities in a nice interactive interface.
+A web application to parse and analyse Snaffler output providing filtering capabilities in a nice interactive interface.  
+Go checkout [Snaffler](https://github.com/SnaffCon/Snaffler)!
 
 ## Features
 
@@ -8,6 +9,7 @@ A web application to parse and analyse Snaffler output providing filtering capab
 - **Clickable Insights**: Navigate directly to filtered results from dashboard statistics
 - **System & Share Filtering**: Quick access to specific systems or shares
 - **File Extension Analysis**: Identify and filter by file types
+![Dashboard](./DashboardScreenshot.png)
 
 ### Results Table 
 - **Details Panel**: Quick view of file contents and metadata without leaving the interface
@@ -19,6 +21,7 @@ A web application to parse and analyse Snaffler output providing filtering capab
   - **Search Functionality**: Find files, paths, or content quickly
 - **Column Visibility**: Show/hide columns to focus on relevant data
 - **CSV Export**: Export filtered results to CSV for external analysis
+![FileResults](./FileResultsScreenshot.png)
 
 ## Installation
 
