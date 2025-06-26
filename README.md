@@ -9,7 +9,7 @@ Go checkout [Snaffler](https://github.com/SnaffCon/Snaffler)!
 - **Clickable Insights**: Navigate directly to filtered results from dashboard statistics
 - **System & Share Filtering**: Quick access to specific systems or shares
 - **File Extension Analysis**: Identify and filter by file types
-![Dashboard](./DashboardScreenshot.png)
+![Dashboard](./imgs/DashboardScreenshot.png)
 
 ### Results Table 
 - **Details Panel**: Quick view of file contents and metadata without leaving the interface
@@ -21,7 +21,7 @@ Go checkout [Snaffler](https://github.com/SnaffCon/Snaffler)!
   - **Search Functionality**: Find files, paths, or content quickly
 - **Column Visibility**: Show/hide columns to focus on relevant data
 - **CSV Export**: Export filtered results to CSV for external analysis
-![FileResults](./FileResultsScreenshot.png)
+![FileResults](./imgs/FileResultsScreenshot.png)
 
 ## Installation
 
