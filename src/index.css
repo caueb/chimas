@@ -309,6 +309,17 @@ body {
   border-color: var(--accent) !important;
 }
 
+.action-button[title*="Export"] {
+  background-color: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.action-button[title*="Export"]:hover {
+  background-color: var(--bg-overlay);
+  border-color: var(--accent);
+}
+
 .button-icon {
   font-size: 0.875rem;
 }
@@ -712,7 +723,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background-color: var(--bg-surface);
+  background-color: var(--bg-overlay);
   border-bottom: 1px solid var(--border);
   border-radius: 8px 8px 0 0;
 }
