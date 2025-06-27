@@ -1,4 +1,4 @@
-# 🧉 Chimas 
+# Chimas 
 
 A web application to parse and analyse Snaffler output providing filtering capabilities in a nice interactive interface.  
 Go checkout [Snaffler](https://github.com/SnaffCon/Snaffler)!

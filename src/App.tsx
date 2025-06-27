@@ -683,7 +683,7 @@ function App() {
         <header className="header">
           <div className="header-content">
             <div className="header-left">
-              <h1>🧉 Chimas</h1>
+              <h1>Chimas</h1>
             </div>
             
             <div className="header-right">
@@ -697,14 +697,6 @@ function App() {
                   <span className="file-size">{loadedFileSize}</span>
                   <span className="file-separator">•</span>
                   <span className="file-stats">{stats.total} files</span>
-                  {duplicateStats && duplicateStats.duplicatesRemoved > 0 && (
-                    <>
-                      <span className="file-separator">•</span>
-                      <span className="file-stats duplicate-warning">
-                        {duplicateStats.duplicatesRemoved} duplicates removed
-                      </span>
-                    </>
-                  )}
                 </div>
                 <div className="file-actions">
                   <button className="action-button clear-button" onClick={handleReset}>
@@ -713,10 +705,10 @@ function App() {
                   </button>
                 </div>
                 <div className="vertical-separator"></div>
-                <button className="action-button theme-toggle-button" onClick={handleThemeToggle}>
-                  <i className={`fas fa-${isDarkTheme ? 'sun' : 'moon'} button-icon`}></i>
-                  {isDarkTheme ? 'Light' : 'Dark'}
-                </button>
+                <div className="theme-toggle-switch" onClick={handleThemeToggle}>
+                  <i className="fas fa-moon sun-icon"></i>
+                  <i className="fas fa-sun moon-icon"></i>
+                </div>
               </div>
             </div>
           </div>
