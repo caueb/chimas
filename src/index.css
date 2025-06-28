@@ -209,7 +209,7 @@ body {
 }
 
 .header {
-  background-color: var(--bg-surface);
+  background-color: var(--bg-overlay);
   border-bottom: 1px solid var(--border);
   padding: 0.75rem 0;
   position: fixed;
@@ -4088,7 +4088,7 @@ tr.selected:hover {
 
 /* Dark theme active state */
 [data-theme="dark"] .theme-toggle-switch {
-  background-color: var(--bg-base);
+  background-color: var(--bg-overlay);
   border-color: var(--border);
 }
 
