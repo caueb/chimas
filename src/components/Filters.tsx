@@ -179,13 +179,6 @@ export const Filters: React.FC<FiltersProps> = ({
             onChange={(e) => setFileExtensionInput(e.target.value)}
             onKeyPress={handleFileExtensionKeyPress}
           />
-          <button 
-            className="add-extension-button"
-            onClick={handleAddFileExtensionFilter}
-            disabled={!fileExtensionInput.trim()}
-          >
-            Add
-          </button>
         </div>
         {fileExtensionFilter.length > 0 && !isMinimized && (
           <div className="custom-filters-list">
@@ -214,13 +207,6 @@ export const Filters: React.FC<FiltersProps> = ({
             onChange={(e) => setCustomFilterText(e.target.value)}
             onKeyPress={handleKeyPress}
           />
-          <button 
-            className="add-filter-button"
-            onClick={handleAddCustomFilter}
-            disabled={!customFilterText.trim()}
-          >
-            Add
-          </button>
         </div>
         {customFilters.length > 0 && (
           <div className="custom-filters-list">

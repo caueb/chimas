@@ -144,11 +144,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareRe
 
   return (
     <div className="dashboard">
-      <div className="dashboard-header">
-        <h1>Dashboard</h1>
-        <p>Overview of Chimas scan results and insights</p>
-      </div>
-
       <div className="dashboard-grid">
         {/* Main Stats Cards */}
         <div className="stats-section">

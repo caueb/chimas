@@ -105,9 +105,9 @@ export const ShareResults: React.FC<ShareResultsProps> = ({ shareResults }) => {
   if (shareResults.length === 0) {
     return (
       <div className="share-results">
-        <div className="share-results-header">
-          <h1>Share Results</h1>
-          <p>No share information found in the uploaded data</p>
+        <div className="no-data">
+          <h3>No share information found</h3>
+          <p>Try uploading a different file or adjusting your filters</p>
         </div>
       </div>
     );
@@ -115,11 +115,6 @@ export const ShareResults: React.FC<ShareResultsProps> = ({ shareResults }) => {
 
   return (
     <div className="share-results">
-      <div className="share-results-header">
-        <h1>Share Results</h1>
-        <p>Network shares discovered during the Chimas scan</p>
-      </div>
-
       <div className="share-controls">
         <div className="search-container">
           <div className="search-input-wrapper">

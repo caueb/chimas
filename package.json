@@ -5,11 +5,12 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "date-fns": "^2.30.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "date-fns": "^2.30.0"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@fullhuman/postcss-purgecss": "^7.0.2",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
