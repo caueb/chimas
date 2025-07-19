@@ -13,14 +13,20 @@ Go checkout [Snaffler](https://github.com/SnaffCon/Snaffler)!
 
 ### Results Table 
 - **Details Panel**: Quick view of file contents and metadata without leaving the interface
+  - **Regex Highlighting**: Matched patterns are highlighted in the match context
+  - **File Permissions**: Visual indicators for read, write, execute, and delete permissions
 - **Keyboard Navigation**: Use arrow keys to navigate through table rows
+- **False Positive Marking**: 
+  - Mark files as false positives to exclude them from analysis
+  - Press `F` to toggle false positive status on selected item
+  - False positive items are automatically excluded from CSV exports
 - **Filtering System**:
   - **Quick Filters**: Filter by severity rating (Red, Yellow, Green, Black)
   - **File Extension Filter**: Target specific file types for analysis
   - **Text Exclude Filter**: Remove unwanted results with custom text filters
   - **Search Functionality**: Find files, paths, or content quickly
 - **Column Visibility**: Show/hide columns to focus on relevant data
-- **CSV Export**: Export filtered results to CSV for external analysis
+- **CSV Export**: Export filtered results to CSV for external analysis (excludes false positives)
 ![FileResults](./imgs/FileResultsScreenshot.png)
 
 ## Installation

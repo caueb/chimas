@@ -5,9 +5,11 @@ import { format } from 'date-fns';
 interface DetailPanelProps {
   selectedResult: FileResult | null;
   onClose: () => void;
+  onToggleFalsePositive: (result: FileResult) => void;
+  falsePositives: Set<string>;
 }
 
-export const DetailPanel: React.FC<DetailPanelProps> = ({ selectedResult, onClose }) => {
+export const DetailPanel: React.FC<DetailPanelProps> = ({ selectedResult, onClose, onToggleFalsePositive, falsePositives }) => {
   if (!selectedResult) {
     return null;
   }
@@ -30,6 +32,47 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ selectedResult, onClos
     }
   };
 
+  // Function to highlight regex matches in the match context
+  const highlightMatches = (context: string, patterns: string[]) => {
+    if (!patterns || patterns.length === 0) {
+      return context;
+    }
+
+    let highlightedText = context;
+    
+    patterns.forEach((pattern, index) => {
+      try {
+        // Create a regex from the pattern, handling special characters
+        const regex = new RegExp(pattern, 'gi');
+        const matches = highlightedText.match(regex);
+        
+        if (matches) {
+          // Replace each match with a highlighted version
+          matches.forEach(match => {
+            const highlightedMatch = `<span class="regex-highlight" data-pattern="${pattern}">${match}</span>`;
+            highlightedText = highlightedText.replace(match, highlightedMatch);
+          });
+        }
+      } catch (error) {
+        // If regex is invalid, just highlight the pattern as literal text
+        const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const literalRegex = new RegExp(escapedPattern, 'gi');
+        const matches = highlightedText.match(literalRegex);
+        
+        if (matches) {
+          matches.forEach(match => {
+            const highlightedMatch = `<span class="regex-highlight" data-pattern="${pattern}">${match}</span>`;
+            highlightedText = highlightedText.replace(match, highlightedMatch);
+          });
+        }
+      }
+    });
+    
+    return highlightedText;
+  };
+
+  const highlightedContext = highlightMatches(selectedResult.matchContext, selectedResult.matchedStrings);
+
   return (
     <div className="detail-panel">
       <div className="detail-section">
@@ -42,7 +85,10 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ selectedResult, onClos
       <div className="detail-section">
         <div className="detail-label">MATCH CONTEXT</div>
         <div className="detail-value-container">
-          <pre className="detail-value context">{selectedResult.matchContext}</pre>
+          <pre 
+            className="detail-value context" 
+            dangerouslySetInnerHTML={{ __html: highlightedContext }}
+          />
         </div>
       </div>
 
@@ -94,24 +140,39 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ selectedResult, onClos
             <div className="detail-value">
               <div className="permission-item">
                 <span className={`permission-badge ${selectedResult.rwStatus.readable ? 'readable' : 'not-readable'}`}>
-                  {selectedResult.rwStatus.readable ? '✓' : '✗'} Readable
+                  <i className={`fas ${selectedResult.rwStatus.readable ? 'fa-check' : 'fa-times'}`}></i> Read
                 </span>
                 <span className={`permission-badge ${selectedResult.rwStatus.writable ? 'writable' : 'not-writable'}`}>
-                  {selectedResult.rwStatus.writable ? '✓' : '✗'} Writable
+                  <i className={`fas ${selectedResult.rwStatus.writable ? 'fa-check' : 'fa-times'}`}></i> Write
                 </span>
                 {selectedResult.rwStatus.executable !== undefined && (
                   <span className={`permission-badge ${selectedResult.rwStatus.executable ? 'executable' : 'not-executable'}`}>
-                    {selectedResult.rwStatus.executable ? '✓' : '✗'} Executable
+                    <i className={`fas ${selectedResult.rwStatus.executable ? 'fa-check' : 'fa-times'}`}></i> Execute
                   </span>
                 )}
                 <span className={`permission-badge ${selectedResult.rwStatus.deleteable ? 'deleteable' : 'not-deleteable'}`}>
-                  {selectedResult.rwStatus.deleteable ? '✓' : '✗'} Deleteable
+                  <i className={`fas ${selectedResult.rwStatus.deleteable ? 'fa-check' : 'fa-times'}`}></i> Delete
                 </span>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      <div className="detail-section horizontal">
+        <div className="detail-label">FALSE POSITIVE:</div>
+        <div className="detail-value">
+          <label className="false-positive-checkbox">
+            <input
+              type="checkbox"
+              checked={falsePositives.has(`${selectedResult.fullPath}-${selectedResult.fileName}`)}
+              onChange={() => onToggleFalsePositive(selectedResult)}
+            />
+            Mark as false positive
+            <span className="keyboard-shortcut">(F)</span>
+          </label>
+        </div>
+      </div>
     </div>
   );
 }; 

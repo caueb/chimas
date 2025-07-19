@@ -80,6 +80,9 @@ function App() {
   // Error state
   const [errorInfo, setErrorInfo] = useState<{ message: string; snippet?: string; errorPosition?: number; fileName?: string; fileType?: string; actualLineNumber?: number; snippetStartLine?: number } | null>(null);
 
+  // False positive state
+  const [falsePositives, setFalsePositives] = useState<Set<string>>(new Set());
+
   // Refs
   const filtersPanelRef = useRef<HTMLDivElement>(null);
   const prevCustomFiltersRef = useRef<CustomFilter[]>([]);
@@ -142,6 +145,7 @@ function App() {
     setFileExtensionFilter([]);
     setCustomFilters([]);
     setCredentialsFilter(false);
+    setFalsePositives(new Set());
     
     // Reset sorting to default
     setSortField('rating');
@@ -215,6 +219,32 @@ function App() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle shortcuts when not typing in input fields
+      const activeElement = document.activeElement;
+      const isTyping = activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' || 
+        (activeElement as HTMLElement).contentEditable === 'true'
+      );
+      
+      if (isTyping) return;
+
+      // F key to toggle false positive
+      if (event.key.toLowerCase() === 'f' && selectedResult) {
+        event.preventDefault();
+        handleToggleFalsePositive(selectedResult);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedResult]);
 
   const handleToggleLeftPanel = () => {
     setIsLeftPanelMinimized(!isLeftPanelMinimized);
@@ -391,9 +421,29 @@ function App() {
     document.documentElement.setAttribute('data-theme', !isDarkTheme ? 'light' : 'dark');
   };
 
+  // Handle toggling false positive status
+  const handleToggleFalsePositive = (result: FileResult) => {
+    const key = `${result.fullPath}-${result.fileName}`;
+    setFalsePositives(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
+  };
+
   // CSV Export function
   const exportToCSV = () => {
-    if (filteredResults.length === 0) return;
+    // Filter out false positives for CSV export
+    const exportResults = filteredResults.filter(result => {
+      const key = `${result.fullPath}-${result.fileName}`;
+      return !falsePositives.has(key);
+    });
+    
+    if (exportResults.length === 0) return;
 
     // Create CSV headers based on visible columns
     const headers: string[] = [];
@@ -426,7 +476,7 @@ function App() {
     // Create CSV content
     const csvContent = [
       headers.join(','),
-      ...filteredResults.map(result => {
+      ...exportResults.map(result => {
         const row: string[] = [];
         if (visibleColumns.rating) row.push(`"${result.rating}"`);
         if (visibleColumns.fullPath) row.push(`"${result.fullPath.replace(/"/g, '""')}"`);
@@ -627,6 +677,11 @@ function App() {
                       </button>
                       <div className="results-count">
                         Showing {filteredResults.length} of {allResults.length} files
+                        {falsePositives.size > 0 && (
+                          <span className="false-positive-count">
+                            ({falsePositives.size} marked as false positive)
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -646,6 +701,7 @@ function App() {
                     totalResults={filteredResults.length}
                     onPageChange={handlePageChange}
                     onPageSizeChange={handlePageSizeChange}
+                    falsePositives={falsePositives}
                   />
                 </div>
               </div>
@@ -659,7 +715,12 @@ function App() {
                 </button>
               </div>
               <div className="panel-content">
-                <DetailPanel selectedResult={selectedResult} onClose={handleCloseRightPanel} />
+                <DetailPanel 
+                  selectedResult={selectedResult} 
+                  onClose={handleCloseRightPanel}
+                  onToggleFalsePositive={handleToggleFalsePositive}
+                  falsePositives={falsePositives}
+                />
               </div>
             </div>
           </div>

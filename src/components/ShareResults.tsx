@@ -120,7 +120,7 @@ export const ShareResults: React.FC<ShareResultsProps> = ({ shareResults }) => {
           <div className="search-input-wrapper">
             <input
               type="text"
-              placeholder="Search shares, system identifiers, permissions, or comments..."
+              placeholder="Search shares, hostname, permissions, or comments..."
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
             />

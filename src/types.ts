@@ -27,6 +27,7 @@ export interface FileResult {
     executable: boolean;
     deleteable: boolean;
   };
+  isFalsePositive?: boolean; // Track if this item is marked as false positive
 }
 
 export interface ShareResult {

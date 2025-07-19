@@ -23,6 +23,8 @@ interface ResultsTableProps {
   totalResults: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+  // False positive props
+  falsePositives: Set<string>;
 }
 
 export const ResultsTable: React.FC<ResultsTableProps> = ({
@@ -38,7 +40,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   totalPages,
   totalResults,
   onPageChange,
-  onPageSizeChange
+  onPageSizeChange,
+  falsePositives
 }) => {
   const tableRef = useRef<HTMLTableElement>(null);
 
@@ -185,11 +188,15 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             const selectedStableKey = selectedResult ? 
               `${selectedResult.fileName}-${selectedResult.fullPath}-${selectedResult.rating}-${selectedResult.size}` : null;
             
+            // Check if this result is marked as false positive
+            const falsePositiveKey = `${result.fullPath}-${result.fileName}`;
+            const isFalsePositive = falsePositives.has(falsePositiveKey);
+            
             return (
             <tr
                 key={stableKey}
               onClick={() => onSelectResult(result)}
-                className={selectedStableKey === stableKey ? 'selected' : ''}
+                className={`${selectedStableKey === stableKey ? 'selected' : ''} ${isFalsePositive ? 'false-positive' : ''}`}
                 style={{ cursor: 'pointer' }}
             >
               {visibleColumns.rating && (

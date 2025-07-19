@@ -33,8 +33,8 @@
   --bg-surface: #0F1117;
   --bg-overlay: #14171E;
   --bg-header: #181A22;
-  --text: #B8B8B8;
-  --text-muted: #707685;
+  --text: #cccccc;
+  --text-muted: #b9b9b9;
   --text-strong: #F9F8FD;
   --border: #242734;
   --accent: #5AA3E0;
@@ -701,6 +701,19 @@ body {
 
 .search-container input::placeholder {
   color: var(--text-muted);
+}
+
+/* Search input with content - white bold text and blue border */
+.search-container input:not(:placeholder-shown) {
+  color: #ffffff;
+  font-weight: bold;
+  border-color: var(--accent);
+  background-color: var(--bg-overlay);
+}
+
+/* Light theme adjustments for search input with content */
+[data-theme="light"] .search-container input:not(:placeholder-shown) {
+  color: #000000;
 }
 
 .search-clear-button {
@@ -2400,48 +2413,19 @@ tr.selected:hover td {
   border: 1px solid;
 }
 
-.permission-badge.readable {
+/* Permission badges - green for true, gray for false */
+.permission-badge.readable,
+.permission-badge.writable,
+.permission-badge.executable,
+.permission-badge.deleteable {
   background-color: var(--green);
   color: var(--bg-base);
   border-color: var(--green);
 }
 
-.permission-badge.not-readable {
-  background-color: var(--red);
-  color: var(--bg-base);
-  border-color: var(--red);
-}
-
-.permission-badge.writable {
-  background-color: var(--yellow);
-  color: var(--bg-base);
-  border-color: var(--yellow);
-}
-
-.permission-badge.not-writable {
-  background-color: var(--text-muted);
-  color: var(--bg-base);
-  border-color: var(--text-muted);
-}
-
-.permission-badge.executable {
-  background-color: var(--blue);
-  color: var(--bg-base);
-  border-color: var(--blue);
-}
-
-.permission-badge.not-executable {
-  background-color: var(--text-muted);
-  color: var(--bg-base);
-  border-color: var(--text-muted);
-}
-
-.permission-badge.deleteable {
-  background-color: var(--accent);
-  color: var(--bg-base);
-  border-color: var(--accent);
-}
-
+.permission-badge.not-readable,
+.permission-badge.not-writable,
+.permission-badge.not-executable,
 .permission-badge.not-deleteable {
   background-color: var(--text-muted);
   color: var(--bg-base);
@@ -2980,4 +2964,96 @@ tr.selected:hover td {
   [data-theme="dark"] .theme-toggle-switch::before {
     transform: translateX(24px);
   }
+}
+
+/* False Positive Styles */
+.false-positive {
+  opacity: 0.5;
+  filter: grayscale(50%);
+}
+
+.false-positive:hover {
+  opacity: 0.7;
+  filter: grayscale(30%);
+}
+
+.false-positive-count {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  margin-left: 8px;
+}
+
+.false-positive-checkbox {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9em;
+}
+
+.false-positive-checkbox input[type="checkbox"] {
+  margin-right: 8px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+}
+
+.false-positive-checkbox input[type="checkbox"]:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+.false-positive-checkbox input[type="checkbox"]:checked::after {
+  content: '\f00c';
+  font-family: 'Font Awesome 5 Free';
+  font-weight: 900;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--bg-base);
+  font-size: 10px;
+}
+
+.keyboard-shortcut {
+  color: var(--text-muted);
+  font-size: 0.8em;
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  opacity: 0.7;
+}
+
+/* Dark theme adjustments for false positive */
+[data-theme="dark"] .false-positive {
+  opacity: 0.4;
+}
+
+[data-theme="dark"] .false-positive:hover {
+  opacity: 0.6;
+}
+
+/* Light theme adjustments for false positive */
+[data-theme="light"] .false-positive {
+  opacity: 0.6;
+}
+
+[data-theme="light"] .false-positive:hover {
+  opacity: 0.8;
+}
+
+/* Regex highlighting styles */
+.regex-highlight {
+  color: #ffffff;
+  font-weight: bold;
+}
+
+/* Light theme adjustments for regex highlighting */
+[data-theme="light"] .regex-highlight {
+  color: #000000;
 }

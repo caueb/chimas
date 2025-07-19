@@ -1,0 +1,799 @@
+{
+  "entries": [
+    {
+      "time": "2024-01-15T10:30:00.000Z",
+      "level": "Warn",
+      "message": "[File] <Red>\\\\DC01.contoso.local\\C$\\Users\\Administrator\\Desktop\\passwords.txt</Red>",
+      "eventProperties": {
+        "Red": {
+          "FileResult": {
+            "FileInfo": {
+              "FullName": "\\\\DC01.contoso.local\\C$\\Users\\Administrator\\Desktop\\passwords.txt",
+              "Name": "passwords.txt",
+              "Length": 2048,
+              "CreationTime": "2024-01-15T08:15:00.000Z",
+              "CreationTimeUtc": "2024-01-15T08:15:00.000Z",
+              "LastWriteTime": "2024-01-15T09:30:00.000Z",
+              "LastWriteTimeUtc": "2024-01-15T09:30:00.000Z",
+              "LastAccessTime": "2024-01-15T10:25:00.000Z",
+              "LastAccessTimeUtc": "2024-01-15T10:25:00.000Z"
+            },
+            "TextResult": {
+              "MatchContext": "admin:SuperSecret123!\nservice:ServicePass456\nbackup:BackupPass789\nroot:RootPassword2024!",
+              "MatchedStrings": ["passw", "credential", "admin:", "root:"]
+            },
+            "MatchedRule": {
+              "RuleName": "PlaintextCredentials",
+              "Triage": "Red"
+            },
+            "RwStatus": {
+              "CanRead": true,
+              "CanWrite": true,
+              "CanModify": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "time": "2024-01-15T10:30:01.000Z",
+      "level": "Warn",
+      "message": "[File] <Red>\\\\DC01.contoso.local\\C$\\Users\\Administrator\\Documents\\config.bak</Red>",
+      "eventProperties": {
+        "Red": {
+          "FileResult": {
+            "FileInfo": {
+              "FullName": "\\\\DC01.contoso.local\\C$\\Users\\Administrator\\Documents\\config.bak",
+              "Name": "config.bak",
+              "Length": 4096,
+              "CreationTime": "2024-01-14T16:20:00.000Z",
+              "CreationTimeUtc": "2024-01-14T16:20:00.000Z",
+              "LastWriteTime": "2024-01-14T16:20:00.000Z",
+              "LastWriteTimeUtc": "2024-01-14T16:20:00.000Z",
+              "LastAccessTime": "2024-01-15T10:26:00.000Z",
+              "LastAccessTimeUtc": "2024-01-15T10:26:00.000Z"
+            },
+            "TextResult": {
+              "MatchContext": "database_connection=mysql://admin:MySqlPass123@localhost:3306/contoso_db\napi_key=sk-1234567890abcdef\nsecret_token=contoso_secret_2024",
+              "MatchedStrings": ["passw", "api_key", "secret", "database"]
+            },
+            "MatchedRule": {
+              "RuleName": "BackupConfigFiles",
+              "Triage": "Red"
+            },
+            "RwStatus": {
+              "CanRead": true,
+              "CanWrite": false,
+              "CanModify": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "time": "2024-01-15T10:30:02.000Z",
+      "level": "Warn",
+      "message": "[File] <Yellow>\\\\DC01.contoso.local\\C$\\Users\\Administrator\\AppData\\Local\\Temp\\session.log</Yellow>",
+      "eventProperties": {
+        "Yellow": {
+          "FileResult": {
+            "FileInfo": {
+              "FullName": "\\\\DC01.contoso.local\\C$\\Users\\Administrator\\AppData\\Local\\Temp\\session.log",
+              "Name": "session.log",
+              "Length": 8192,
+              "CreationTime": "2024-01-15T09:45:00.000Z",
+              "CreationTimeUtc": "2024-01-15T09:45:00.000Z",
+              "LastWriteTime": "2024-01-15T10:28:00.000Z",
+              "LastWriteTimeUtc": "2024-01-15T10:28:00.000Z",
+              "LastAccessTime": "2024-01-15T10:28:00.000Z",
+              "LastAccessTimeUtc": "2024-01-15T10:28:00.000Z"
+            },
+            "TextResult": {
+              "MatchContext": "User login: john.doe@contoso.local\nSession ID: 12345-67890-abcdef\nLast activity: 2024-01-15 10:28:00",
+              "MatchedStrings": ["login", "session", "user"]
+            },
+            "MatchedRule": {
+              "RuleName": "LogFiles",
+              "Triage": "Yellow"
+            },
+            "RwStatus": {
+              "CanRead": true,
+              "CanWrite": true,
+              "CanModify": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "time": "2024-01-15T10:30:03.000Z",
+      "level": "Warn",
+      "message": "[File] <Green>\\\\DC01.contoso.local\\C$\\Program Files\\ContosoApp\\settings.xml</Green>",
+      "eventProperties": {
+        "Green": {
+          "FileResult": {
+            "FileInfo": {
+              "FullName": "\\\\DC01.contoso.local\\C$\\Program Files\\ContosoApp\\settings.xml",
+              "Name": "settings.xml",
+              "Length": 1536,
+              "CreationTime": "2024-01-10T14:30:00.000Z",
+              "CreationTimeUtc": "2024-01-10T14:30:00.000Z",
+              "LastWriteTime": "2024-01-12T11:15:00.000Z",
+              "LastWriteTimeUtc": "2024-01-12T11:15:00.000Z",
+              "LastAccessTime": "2024-01-15T10:29:00.000Z",
+              "LastAccessTimeUtc": "2024-01-15T10:29:00.000Z"
+            },
+            "TextResult": {
+              "MatchContext": "<configuration>\n  <appSettings>\n    <add key=\"LogLevel\" value=\"Info\" />\n    <add key=\"MaxConnections\" value=\"100\" />\n  </appSettings>\n</configuration>",
+              "MatchedStrings": ["config", "settings", "appSettings"]
+            },
+            "MatchedRule": {
+              "RuleName": "ConfigFiles",
+              "Triage": "Green"
+            },
+            "RwStatus": {
+              "CanRead": true,
+              "CanWrite": false,
+              "CanModify": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "time": "2024-01-15T10:30:04.000Z",
+      "level": "Warn",
+      "message": "[File] <Black>\\\\DC01.contoso.local\\C$\\Users\\Administrator\\Documents\\report.pdf</Black>",
+      "eventProperties": {
+        "Black": {
+          "FileResult": {
+            "FileInfo": {
+              "FullName": "\\\\DC01.contoso.local\\C$\\Users\\Administrator\\Documents\\report.pdf",
+              "Name": "report.pdf",
+              "Length": 1048576,
+              "CreationTime": "2024-01-14T15:20:00.000Z",
+              "CreationTimeUtc": "2024-01-14T15:20:00.000Z",
+              "LastWriteTime": "2024-01-14T15:20:00.000Z",
+              "LastWriteTimeUtc": "2024-01-14T15:20:00.000Z",
+              "LastAccessTime": "2024-01-15T10:30:00.000Z",
+              "LastAccessTimeUtc": "2024-01-15T10:30:00.000Z"
+            },
+            "TextResult": {
+              "MatchContext": "PDF document content",
+              "MatchedStrings": ["\\.pdf$", "\\.docx?$", "\\.xlsx?$"]
+            },
+            "MatchedRule": {
+              "RuleName": "DocumentFiles",
+              "Triage": "Black"
+            },
+            "RwStatus": {
+              "CanRead": true,
+              "CanWrite": false,
+              "CanModify": false
+            }
+          }
+        }
+             }
+     },
+     {
+       "time": "2024-01-15T10:30:05.000Z",
+       "level": "Warn",
+       "message": "[File] <Red>\\\\WEB01.contoso.local\\C$\\inetpub\\wwwroot\\web.config</Red>",
+       "eventProperties": {
+         "Red": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\WEB01.contoso.local\\C$\\inetpub\\wwwroot\\web.config",
+               "Name": "web.config",
+               "Length": 3072,
+               "CreationTime": "2024-01-08T10:00:00.000Z",
+               "CreationTimeUtc": "2024-01-08T10:00:00.000Z",
+               "LastWriteTime": "2024-01-13T16:45:00.000Z",
+               "LastWriteTimeUtc": "2024-01-13T16:45:00.000Z",
+               "LastAccessTime": "2024-01-15T10:31:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:31:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "<connectionStrings>\n  <add name=\"ContosoDB\" connectionString=\"Server=DB01.contoso.local;Database=ContosoDB;User Id=webuser;Password=WebPass789!;\" />\n  <add name=\"Redis\" connectionString=\"redis://cache.contoso.local:6379\" />\n</connectionStrings>",
+               "MatchedStrings": ["passw", "connectionString", "user"]
+             },
+             "MatchedRule": {
+               "RuleName": "WebConfigFiles",
+               "Triage": "Red"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": false,
+               "CanModify": false
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:06.000Z",
+       "level": "Warn",
+       "message": "[File] <Yellow>\\\\WEB01.contoso.local\\C$\\inetpub\\wwwroot\\backup\\web.config.old</Yellow>",
+       "eventProperties": {
+         "Yellow": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\WEB01.contoso.local\\C$\\inetpub\\wwwroot\\backup\\web.config.old",
+               "Name": "web.config.old",
+               "Length": 2560,
+               "CreationTime": "2024-01-12T14:30:00.000Z",
+               "CreationTimeUtc": "2024-01-12T14:30:00.000Z",
+               "LastWriteTime": "2024-01-12T14:30:00.000Z",
+               "LastWriteTimeUtc": "2024-01-12T14:30:00.000Z",
+               "LastAccessTime": "2024-01-15T10:32:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:32:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "<connectionStrings>\n  <add name=\"OldDB\" connectionString=\"Server=olddb.contoso.local;Database=OldDB;User Id=olduser;Password=OldPass123;\" />\n</connectionStrings>",
+               "MatchedStrings": ["passw", "connectionString", "user"]
+             },
+             "MatchedRule": {
+               "RuleName": "BackupFiles",
+               "Triage": "Yellow"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": true,
+               "CanModify": true
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:07.000Z",
+       "level": "Warn",
+       "message": "[File] <Red>\\\\DB01.contoso.local\\C$\\Program Files\\MySQL\\MySQL Server 8.0\\my.ini</Red>",
+       "eventProperties": {
+         "Red": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\DB01.contoso.local\\C$\\Program Files\\MySQL\\MySQL Server 8.0\\my.ini",
+               "Name": "my.ini",
+               "Length": 2048,
+               "CreationTime": "2024-01-05T09:00:00.000Z",
+               "CreationTimeUtc": "2024-01-05T09:00:00.000Z",
+               "LastWriteTime": "2024-01-10T13:20:00.000Z",
+               "LastWriteTimeUtc": "2024-01-10T13:20:00.000Z",
+               "LastAccessTime": "2024-01-15T10:33:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:33:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "[mysqld]\nuser=mysql\nport=3306\nbasedir=C:/Program Files/MySQL/MySQL Server 8.0/\ndatadir=C:/ProgramData/MySQL/MySQL Server 8.0/Data/\n\n[mysql]\nuser=root\npassword=MySQLRootPass456!",
+               "MatchedStrings": ["passw", "mysql", "database", "^\\.mysql_history$"]
+             },
+             "MatchedRule": {
+               "RuleName": "DatabaseConfigFiles",
+               "Triage": "Red"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": false,
+               "CanModify": false
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:08.000Z",
+       "level": "Warn",
+       "message": "[File] <Yellow>\\\\DB01.contoso.local\\C$\\Program Files\\MySQL\\MySQL Server 8.0\\backup\\my.ini.bak</Yellow>",
+       "eventProperties": {
+         "Yellow": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\DB01.contoso.local\\C$\\Program Files\\MySQL\\MySQL Server 8.0\\backup\\my.ini.bak",
+               "Name": "my.ini.bak",
+               "Length": 1792,
+               "CreationTime": "2024-01-08T11:00:00.000Z",
+               "CreationTimeUtc": "2024-01-08T11:00:00.000Z",
+               "LastWriteTime": "2024-01-08T11:00:00.000Z",
+               "LastWriteTimeUtc": "2024-01-08T11:00:00.000Z",
+               "LastAccessTime": "2024-01-15T10:34:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:34:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "[mysqld]\nuser=mysql\nport=3306\nbasedir=C:/Program Files/MySQL/MySQL Server 8.0/\ndatadir=C:/ProgramData/MySQL/MySQL Server 8.0/Data/\n\n[mysql]\nuser=root\npassword=OldMySQLPass123",
+               "MatchedStrings": ["passw", "mysql", "database", "^\\.mysql_history$"]
+             },
+             "MatchedRule": {
+               "RuleName": "BackupConfigFiles",
+               "Triage": "Yellow"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": true,
+               "CanModify": true
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:09.000Z",
+       "level": "Warn",
+       "message": "[File] <Green>\\\\APP01.contoso.local\\C$\\Users\\ServiceAccount\\AppData\\Local\\ContosoApp\\app.log</Green>",
+       "eventProperties": {
+         "Green": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\APP01.contoso.local\\C$\\Users\\ServiceAccount\\AppData\\Local\\ContosoApp\\app.log",
+               "Name": "app.log",
+               "Length": 5120,
+               "CreationTime": "2024-01-15T08:00:00.000Z",
+               "CreationTimeUtc": "2024-01-15T08:00:00.000Z",
+               "LastWriteTime": "2024-01-15T10:35:00.000Z",
+               "LastWriteTimeUtc": "2024-01-15T10:35:00.000Z",
+               "LastAccessTime": "2024-01-15T10:35:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:35:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "2024-01-15 10:35:00 [INFO] Application started\n2024-01-15 10:35:01 [INFO] Database connection established\n2024-01-15 10:35:02 [INFO] Web service listening on port 8080",
+               "MatchedStrings": ["log", "app", "database"]
+             },
+             "MatchedRule": {
+               "RuleName": "ApplicationLogs",
+               "Triage": "Green"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": true,
+               "CanModify": true
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:10.000Z",
+       "level": "Warn",
+       "message": "[File] <Red>\\\\APP01.contoso.local\\C$\\Users\\ServiceAccount\\Desktop\\secrets.env</Red>",
+       "eventProperties": {
+         "Red": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\APP01.contoso.local\\C$\\Users\\ServiceAccount\\Desktop\\secrets.env",
+               "Name": "secrets.env",
+               "Length": 1024,
+               "CreationTime": "2024-01-15T09:00:00.000Z",
+               "CreationTimeUtc": "2024-01-15T09:00:00.000Z",
+               "LastWriteTime": "2024-01-15T09:00:00.000Z",
+               "LastWriteTimeUtc": "2024-01-15T09:00:00.000Z",
+               "LastAccessTime": "2024-01-15T10:36:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:36:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "DB_HOST=DB01.contoso.local\nDB_USER=appuser\nDB_PASSWORD=AppPass789!\nAPI_KEY=sk-contoso-api-123456789\nJWT_SECRET=contoso-jwt-secret-2024",
+               "MatchedStrings": ["passw", "api_key", "secret", "credential"]
+             },
+             "MatchedRule": {
+               "RuleName": "EnvironmentFiles",
+               "Triage": "Red"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": true,
+               "CanModify": true
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:11.000Z",
+       "level": "Warn",
+       "message": "[File] <Yellow>\\\\APP01.contoso.local\\C$\\Users\\ServiceAccount\\Documents\\old_secrets.env.backup</Yellow>",
+       "eventProperties": {
+         "Yellow": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\APP01.contoso.local\\C$\\Users\\ServiceAccount\\Documents\\old_secrets.env.backup",
+               "Name": "old_secrets.env.backup",
+               "Length": 896,
+               "CreationTime": "2024-01-10T15:30:00.000Z",
+               "CreationTimeUtc": "2024-01-10T15:30:00.000Z",
+               "LastWriteTime": "2024-01-10T15:30:00.000Z",
+               "LastWriteTimeUtc": "2024-01-10T15:30:00.000Z",
+               "LastAccessTime": "2024-01-15T10:37:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:37:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "DB_HOST=olddb.contoso.local\nDB_USER=oldappuser\nDB_PASSWORD=OldAppPass456\nAPI_KEY=sk-old-api-987654321",
+               "MatchedStrings": ["passw", "api_key", "secret", "credential"]
+             },
+             "MatchedRule": {
+               "RuleName": "BackupEnvFiles",
+               "Triage": "Yellow"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": true,
+               "CanModify": true
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:12.000Z",
+       "level": "Warn",
+       "message": "[File] <Black>\\\\FILE01.contoso.local\\C$\\Users\\Administrator\\Documents\\Q4_Report.docx</Black>",
+       "eventProperties": {
+         "Black": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\FILE01.contoso.local\\C$\\Users\\Administrator\\Documents\\Q4_Report.docx",
+               "Name": "Q4_Report.docx",
+               "Length": 2097152,
+               "CreationTime": "2024-01-14T16:00:00.000Z",
+               "CreationTimeUtc": "2024-01-14T16:00:00.000Z",
+               "LastWriteTime": "2024-01-14T16:00:00.000Z",
+               "LastWriteTimeUtc": "2024-01-14T16:00:00.000Z",
+               "LastAccessTime": "2024-01-15T10:38:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:38:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "Microsoft Word document",
+               "MatchedStrings": ["\\.docx?$", "\\.xlsx?$", "\\.pptx?$"]
+             },
+             "MatchedRule": {
+               "RuleName": "OfficeDocuments",
+               "Triage": "Black"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": false,
+               "CanModify": false
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:13.000Z",
+       "level": "Warn",
+       "message": "[File] <Red>\\\\FILE01.contoso.local\\C$\\Users\\Administrator\\Desktop\\ssh_key.txt</Red>",
+       "eventProperties": {
+         "Red": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\FILE01.contoso.local\\C$\\Users\\Administrator\\Desktop\\ssh_key.txt",
+               "Name": "ssh_key.txt",
+               "Length": 1675,
+               "CreationTime": "2024-01-15T08:45:00.000Z",
+               "CreationTimeUtc": "2024-01-15T08:45:00.000Z",
+               "LastWriteTime": "2024-01-15T08:45:00.000Z",
+               "LastWriteTimeUtc": "2024-01-15T08:45:00.000Z",
+               "LastAccessTime": "2024-01-15T10:39:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:39:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA1234567890abcdef...\n-----END RSA PRIVATE KEY-----",
+               "MatchedStrings": ["-----BEGIN RSA PRIVATE KEY-----", "ssh", "private"]
+             },
+             "MatchedRule": {
+               "RuleName": "SSHKeys",
+               "Triage": "Red"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": true,
+               "CanModify": true
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:14.000Z",
+       "level": "Warn",
+       "message": "[File] <Yellow>\\\\FILE01.contoso.local\\C$\\Users\\Administrator\\Documents\\backup\\ssh_key.txt.old</Yellow>",
+       "eventProperties": {
+         "Yellow": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\FILE01.contoso.local\\C$\\Users\\Administrator\\Documents\\backup\\ssh_key.txt.old",
+               "Name": "ssh_key.txt.old",
+               "Length": 1675,
+               "CreationTime": "2024-01-10T12:00:00.000Z",
+               "CreationTimeUtc": "2024-01-10T12:00:00.000Z",
+               "LastWriteTime": "2024-01-10T12:00:00.000Z",
+               "LastWriteTimeUtc": "2024-01-10T12:00:00.000Z",
+               "LastAccessTime": "2024-01-15T10:40:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:40:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEAoldkey123456789...\n-----END RSA PRIVATE KEY-----",
+               "MatchedStrings": ["-----BEGIN RSA PRIVATE KEY-----", "ssh", "private"]
+             },
+             "MatchedRule": {
+               "RuleName": "BackupSSHKeys",
+               "Triage": "Yellow"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": true,
+               "CanModify": true
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:15.000Z",
+       "level": "Warn",
+       "message": "[File] <Green>\\\\MAIL01.contoso.local\\C$\\Program Files\\Microsoft\\Exchange Server\\V15\\Logging\\Transport\\20240115.log</Green>",
+       "eventProperties": {
+         "Green": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\MAIL01.contoso.local\\C$\\Program Files\\Microsoft\\Exchange Server\\V15\\Logging\\Transport\\20240115.log",
+               "Name": "20240115.log",
+               "Length": 16384,
+               "CreationTime": "2024-01-15T00:00:00.000Z",
+               "CreationTimeUtc": "2024-01-15T00:00:00.000Z",
+               "LastWriteTime": "2024-01-15T10:41:00.000Z",
+               "LastWriteTimeUtc": "2024-01-15T10:41:00.000Z",
+               "LastAccessTime": "2024-01-15T10:41:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:41:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "2024-01-15 10:41:00,SMTP,INFO,Message delivered to john.doe@contoso.local\n2024-01-15 10:41:01,SMTP,INFO,Message delivered to jane.smith@contoso.local",
+               "MatchedStrings": ["exchange", "mail", "smtp"]
+             },
+             "MatchedRule": {
+               "RuleName": "ExchangeLogs",
+               "Triage": "Green"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": false,
+               "CanModify": false
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:16.000Z",
+       "level": "Warn",
+       "message": "[File] <Red>\\\\MAIL01.contoso.local\\C$\\Users\\Administrator\\Desktop\\exchange_admin.txt</Red>",
+       "eventProperties": {
+         "Red": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\MAIL01.contoso.local\\C$\\Users\\Administrator\\Desktop\\exchange_admin.txt",
+               "Name": "exchange_admin.txt",
+               "Length": 512,
+               "CreationTime": "2024-01-15T09:15:00.000Z",
+               "CreationTimeUtc": "2024-01-15T09:15:00.000Z",
+               "LastWriteTime": "2024-01-15T09:15:00.000Z",
+               "LastWriteTimeUtc": "2024-01-15T09:15:00.000Z",
+               "LastAccessTime": "2024-01-15T10:42:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:42:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "Exchange Admin Credentials:\nUsername: admin@contoso.local\nPassword: ExchangeAdminPass789!\nDomain: contoso.local",
+               "MatchedStrings": ["admin", "credential", "exchange"]
+             },
+             "MatchedRule": {
+               "RuleName": "AdminCredentials",
+               "Triage": "Red"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": true,
+               "CanModify": true
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:17.000Z",
+       "level": "Warn",
+       "message": "[File] <Black>\\\\BACKUP01.contoso.local\\C$\\Users\\Administrator\\Documents\\backup_schedule.pdf</Black>",
+       "eventProperties": {
+         "Black": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\BACKUP01.contoso.local\\C$\\Users\\Administrator\\Documents\\backup_schedule.pdf",
+               "Name": "backup_schedule.pdf",
+               "Length": 524288,
+               "CreationTime": "2024-01-13T14:00:00.000Z",
+               "CreationTimeUtc": "2024-01-13T14:00:00.000Z",
+               "LastWriteTime": "2024-01-13T14:00:00.000Z",
+               "LastWriteTimeUtc": "2024-01-13T14:00:00.000Z",
+               "LastAccessTime": "2024-01-15T10:43:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:43:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "PDF document content",
+               "MatchedStrings": ["\\.pdf$", "\\.docx?$", "\\.xlsx?$"]
+             },
+             "MatchedRule": {
+               "RuleName": "DocumentFiles",
+               "Triage": "Black"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": false,
+               "CanModify": false
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:18.000Z",
+       "level": "Warn",
+       "message": "[File] <Yellow>\\\\BACKUP01.contoso.local\\C$\\Users\\Administrator\\AppData\\Local\\Temp\\backup_config.tmp</Yellow>",
+       "eventProperties": {
+         "Yellow": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\BACKUP01.contoso.local\\C$\\Users\\Administrator\\AppData\\Local\\Temp\\backup_config.tmp",
+               "Name": "backup_config.tmp",
+               "Length": 768,
+               "CreationTime": "2024-01-15T10:30:00.000Z",
+               "CreationTimeUtc": "2024-01-15T10:30:00.000Z",
+               "LastWriteTime": "2024-01-15T10:30:00.000Z",
+               "LastWriteTimeUtc": "2024-01-15T10:30:00.000Z",
+               "LastAccessTime": "2024-01-15T10:44:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:44:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "backup_server=backup01.contoso.local\nbackup_user=backupuser\nbackup_path=/backups/contoso",
+               "MatchedStrings": ["backup", "server", "user"]
+             },
+             "MatchedRule": {
+               "RuleName": "TempConfigFiles",
+               "Triage": "Yellow"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": true,
+               "CanModify": true
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:19.000Z",
+       "level": "Warn",
+       "message": "[File] <Green>\\\\DEV01.contoso.local\\C$\\Users\\Developer\\source\\repos\\ContosoApp\\appsettings.json</Green>",
+       "eventProperties": {
+         "Green": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\DEV01.contoso.local\\C$\\Users\\Developer\\source\\repos\\ContosoApp\\appsettings.json",
+               "Name": "appsettings.json",
+               "Length": 1024,
+               "CreationTime": "2024-01-14T13:00:00.000Z",
+               "CreationTimeUtc": "2024-01-14T13:00:00.000Z",
+               "LastWriteTime": "2024-01-15T09:30:00.000Z",
+               "LastWriteTimeUtc": "2024-01-15T09:30:00.000Z",
+               "LastAccessTime": "2024-01-15T10:45:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:45:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "{\n  \"Logging\": {\n    \"LogLevel\": {\n      \"Default\": \"Information\",\n      \"Microsoft\": \"Warning\"\n    }\n  },\n  \"ConnectionStrings\": {\n    \"DefaultConnection\": \"Server=devdb.contoso.local;Database=ContosoDev;Trusted_Connection=true;\"\n  }\n}",
+               "MatchedStrings": ["config", "json", "settings"]
+             },
+             "MatchedRule": {
+               "RuleName": "AppSettingsFiles",
+               "Triage": "Green"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": true,
+               "CanModify": true
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:20.000Z",
+       "level": "Warn",
+       "message": "[File] <Red>\\\\DEV01.contoso.local\\C$\\Users\\Developer\\Desktop\\dev_credentials.txt</Red>",
+       "eventProperties": {
+         "Red": {
+           "FileResult": {
+             "FileInfo": {
+               "FullName": "\\\\DEV01.contoso.local\\C$\\Users\\Developer\\Desktop\\dev_credentials.txt",
+               "Name": "dev_credentials.txt",
+               "Length": 384,
+               "CreationTime": "2024-01-15T08:30:00.000Z",
+               "CreationTimeUtc": "2024-01-15T08:30:00.000Z",
+               "LastWriteTime": "2024-01-15T08:30:00.000Z",
+               "LastWriteTimeUtc": "2024-01-15T08:30:00.000Z",
+               "LastAccessTime": "2024-01-15T10:46:00.000Z",
+               "LastAccessTimeUtc": "2024-01-15T10:46:00.000Z"
+             },
+             "TextResult": {
+               "MatchContext": "Dev Database:\nUser: devuser\nPass: DevPass123!\n\nTest API:\nKey: sk-dev-test-abcdef123",
+               "MatchedStrings": ["dev", "database", "user", "pass", "api", "key", "credential"]
+             },
+             "MatchedRule": {
+               "RuleName": "DevCredentials",
+               "Triage": "Red"
+             },
+             "RwStatus": {
+               "CanRead": true,
+               "CanWrite": true,
+               "CanModify": true
+             }
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:21.000Z",
+       "level": "Warn",
+       "message": "[Share] <Yellow>\\\\DC01.contoso.local\\NETLOGON</Yellow>",
+       "eventProperties": {
+         "Yellow": {
+           "ShareResult": {
+             "SharePath": "\\\\DC01.contoso.local\\NETLOGON",
+             "ShareName": "NETLOGON",
+             "SystemId": "DC01.contoso.local",
+             "ShareComment": "Logon server share",
+             "Listable": true,
+             "RootWritable": false,
+             "RootReadable": true,
+             "RootModifyable": false,
+             "Triage": "Yellow"
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:22.000Z",
+       "level": "Warn",
+       "message": "[Share] <Green>\\\\WEB01.contoso.local\\WEBSITE</Green>",
+       "eventProperties": {
+         "Green": {
+           "ShareResult": {
+             "SharePath": "\\\\WEB01.contoso.local\\WEBSITE",
+             "ShareName": "WEBSITE",
+             "SystemId": "WEB01.contoso.local",
+             "ShareComment": "Website files",
+             "Listable": true,
+             "RootWritable": false,
+             "RootReadable": true,
+             "RootModifyable": false,
+             "Triage": "Green"
+           }
+         }
+       }
+     },
+     {
+       "time": "2024-01-15T10:30:23.000Z",
+       "level": "Warn",
+       "message": "[Share] <Red>\\\\DB01.contoso.local\\BACKUP</Red>",
+       "eventProperties": {
+         "Red": {
+           "ShareResult": {
+             "SharePath": "\\\\DB01.contoso.local\\BACKUP",
+             "ShareName": "BACKUP",
+             "SystemId": "DB01.contoso.local",
+             "ShareComment": "Database backups",
+             "Listable": true,
+             "RootWritable": true,
+             "RootReadable": true,
+             "RootModifyable": true,
+             "Triage": "Red"
+           }
+         }
+       }
+     }
+   ]
+ } 
