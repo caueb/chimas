@@ -1918,38 +1918,9 @@ tr.selected:hover td {
   margin-left: auto;
   margin-right: auto;
   height: calc(100vh - var(--header-nav-total));
-  min-height: 800px;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
-/* Custom scrollbar for Share Results */
-/*
-.share-results-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.share-results-container::-webkit-scrollbar-track {
-  background: var(--bg-overlay);
-}
-
-.share-results-container::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-}
-
-.share-results-container::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
-
-.share-results-container::-webkit-scrollbar-corner {
-  background: var(--bg-overlay);
-}
-
-.share-results-container {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) var(--bg-overlay);
-}
-*/
 
 .share-results {
   width: 100%;
@@ -1975,6 +1946,7 @@ tr.selected:hover td {
   overflow: hidden;
   flex: 1;
   min-height: 0;
+  max-height: calc(100vh - var(--header-nav-total) - 8rem);
   display: flex;
   flex-direction: column;
 }
