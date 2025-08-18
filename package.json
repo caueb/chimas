@@ -1,11 +1,12 @@
 {
   "name": "chimas",
   "version": "1.0.0",
-  "description": "Sipping secrets from SMB shares, one credential at a time - A web application for analyzing Snaffler output",
+  "description": "Sipping secrets from SMB shares and GPOs, one credential at a time - A web application for analyzing Snaffler output",
   "private": true,
   "type": "module",
   "dependencies": {
     "date-fns": "^2.30.0",
+    "exceljs": "^4.4.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
