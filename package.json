@@ -1,7 +1,7 @@
 {
   "name": "chimas",
   "version": "1.0.0",
-  "description": "Sipping secrets from SMB shares, one credential at a time - A web application for analyzing Snaffler output",
+  "description": "Sipping secrets from SMB shares and GPOs, one credential at a time - A web application for analyzing Snaffler output",
   "private": true,
   "type": "module",
   "dependencies": {

@@ -6,13 +6,24 @@ import { DetailPanel } from './components/DetailPanel';
 import { Filters } from './components/Filters';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/Dashboard';
+import { GPODashboard } from './components/GPODashboard';
 import { ShareResults } from './components/ShareResults';
 import { ErrorDisplay } from './components/ErrorDisplay';
 import { parseSnafflerData, parseShareData } from './utils/parser';
 import { format } from 'date-fns';
 import * as ExcelJS from 'exceljs';
+import { parseGPO, GPOReport } from './utils/GPOParser';
+import GPOResults from './components/GPOResults.tsx';
+import {
+  exportFileResultsToCSV,
+  exportFileResultsToXLSX,
+  exportShareResultsToCSV,
+  exportShareResultsToXLSX,
+  exportGPOToCSV,
+  exportGPOToXLSX,
+} from './utils/exporter';
 
-type View = 'dashboard' | 'file-results' | 'share-results';
+type View = 'dashboard' | 'file-results' | 'share-results' | 'GPO-results';
 
 // Credentials keywords for filtering - moved outside component to prevent recreation
 const CREDENTIALS_KEYWORDS = [
@@ -29,6 +40,13 @@ function App() {
   const [showRightPanel, setShowRightPanel] = useState(false);
   const [isLeftPanelMinimized, setIsLeftPanelMinimized] = useState(false);
   const [currentView, setCurrentView] = useState<View>('dashboard');
+  
+  // Persistent panel sizing
+  const [leftPanelWidthPx, setLeftPanelWidthPx] = useState<number>(300);
+  const [rightPanelWidthPx, setRightPanelWidthPx] = useState<number>(400);
+  const [draggingSide, setDraggingSide] = useState<'left' | 'right' | null>(null);
+  const previousLeftWidthRef = useRef<number>(300);
+  const windowWidthRef = useRef<number>(typeof window !== 'undefined' ? window.innerWidth : 1440);
   
   // Theme state
   const [isDarkTheme, setIsDarkTheme] = useState(true);
@@ -74,6 +92,8 @@ function App() {
 
   // Share Results state
   const [shareResults, setShareResults] = useState<any[]>([]);
+  // GPO state
+  const [GPOReport, setGPOReport] = useState<GPOReport | null>(null);
   
   // Duplicate statistics state
   const [duplicateStats, setDuplicateStats] = useState<any>(null);
@@ -86,42 +106,202 @@ function App() {
 
   // Export dropdown state
   const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const [showHeaderExport, setShowHeaderExport] = useState(false);
 
   // Refs
   const filtersPanelRef = useRef<HTMLDivElement>(null);
   const prevCustomFiltersRef = useRef<CustomFilter[]>([]);
+  const leftResizerRef = useRef<HTMLDivElement>(null);
+  const rightResizerRef = useRef<HTMLDivElement>(null);
+
+  // Helpers for persistence
+  const getStoredPct = (key: string, fallback: number) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      const num = parseFloat(raw);
+      return isNaN(num) ? fallback : num;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const setStoredPct = (key: string, value: number) => {
+    try {
+      localStorage.setItem(key, String(value));
+    } catch {}
+  };
+
+  // Initialize panel sizes from stored proportions
+  useEffect(() => {
+    const ww = window.innerWidth;
+    windowWidthRef.current = ww;
+    const storedLeftPct = getStoredPct('layout:leftPct', 300 / ww);
+    const storedRightPct = getStoredPct('layout:rightPct', 400 / ww);
+    const MIN_LEFT = 180;
+    const MIN_RIGHT = 280;
+    const MIN_CENTER = 480;
+    const computedRight = Math.round(storedRightPct * ww);
+    const maxLeft = Math.max(MIN_LEFT, ww - (showRightPanel ? computedRight : 0) - MIN_CENTER);
+    const newLeft = Math.max(MIN_LEFT, Math.min(Math.round(storedLeftPct * ww), maxLeft));
+    const maxRight = Math.max(MIN_RIGHT, ww - newLeft - MIN_CENTER);
+    const newRight = Math.max(MIN_RIGHT, Math.min(computedRight, maxRight));
+    setLeftPanelWidthPx(newLeft);
+    setRightPanelWidthPx(newRight);
+    // Keep reference for un-minimize
+    previousLeftWidthRef.current = Math.max(MIN_LEFT, Math.round(storedLeftPct * ww));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Recompute sizes on window resize to maintain proportions
+  useEffect(() => {
+    const onResize = () => {
+      const ww = window.innerWidth;
+      const leftPct = leftPanelWidthPx / windowWidthRef.current;
+      const rightPct = rightPanelWidthPx / windowWidthRef.current;
+      windowWidthRef.current = ww;
+      const MIN_LEFT = 180;
+      const MIN_RIGHT = 280;
+      const MIN_CENTER = 480;
+      const computedLeft = Math.round(leftPct * ww);
+      const computedRight = Math.round(rightPct * ww);
+      const maxLeft = Math.max(MIN_LEFT, ww - (showRightPanel ? computedRight : 0) - MIN_CENTER);
+      setLeftPanelWidthPx(Math.max(MIN_LEFT, Math.min(computedLeft, maxLeft)));
+      if (showRightPanel) {
+        const maxRight = Math.max(MIN_RIGHT, ww - leftPanelWidthPx - MIN_CENTER);
+        setRightPanelWidthPx(Math.max(MIN_RIGHT, Math.min(computedRight, maxRight)));
+      }
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [leftPanelWidthPx, rightPanelWidthPx, showRightPanel]);
+
+  // Clamp sizes when right panel visibility changes
+  useEffect(() => {
+    const ww = window.innerWidth;
+    const MIN_LEFT = 180;
+    const MIN_RIGHT = 280;
+    const MIN_CENTER = 480;
+    if (showRightPanel) {
+      const maxLeft = Math.max(MIN_LEFT, ww - rightPanelWidthPx - MIN_CENTER);
+      setLeftPanelWidthPx(prev => Math.max(MIN_LEFT, Math.min(prev, maxLeft)));
+      const maxRight = Math.max(MIN_RIGHT, ww - (isLeftPanelMinimized ? 50 : leftPanelWidthPx) - MIN_CENTER);
+      setRightPanelWidthPx(prev => Math.max(MIN_RIGHT, Math.min(prev, maxRight)));
+    } else {
+      // No right panel: ensure center >= MIN_CENTER still holds for left width
+      const maxLeft = Math.max(MIN_LEFT, ww - MIN_CENTER);
+      setLeftPanelWidthPx(prev => Math.max(MIN_LEFT, Math.min(prev, maxLeft)));
+    }
+  }, [showRightPanel, isLeftPanelMinimized, leftPanelWidthPx, rightPanelWidthPx]);
+
+  // Persist proportions when sizes change
+  useEffect(() => {
+    const ww = windowWidthRef.current || window.innerWidth;
+    if (ww > 0) {
+      setStoredPct('layout:leftPct', leftPanelWidthPx / ww);
+    }
+  }, [leftPanelWidthPx]);
+  useEffect(() => {
+    const ww = windowWidthRef.current || window.innerWidth;
+    if (ww > 0) {
+      setStoredPct('layout:rightPct', rightPanelWidthPx / ww);
+    }
+  }, [rightPanelWidthPx]);
+
+  // Drag handling
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!draggingSide) return;
+      const ww = window.innerWidth;
+      const MIN_LEFT = 180;
+      const MIN_RIGHT = 280;
+      const MIN_CENTER = 480;
+      if (draggingSide === 'left') {
+        if (isLeftPanelMinimized) return;
+        let newLeft = e.clientX; // distance from left edge
+        // Clamp to min and ensure center maintains min width
+        const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - MIN_CENTER;
+        newLeft = Math.max(MIN_LEFT, Math.min(newLeft, maxLeft));
+        setLeftPanelWidthPx(newLeft);
+        previousLeftWidthRef.current = newLeft;
+      } else if (draggingSide === 'right') {
+        if (!showRightPanel) return;
+        // right width is window width - mouseX
+        let newRight = ww - e.clientX;
+        const maxRight = ww - (isLeftPanelMinimized ? 50 : leftPanelWidthPx) - MIN_CENTER;
+        newRight = Math.max(MIN_RIGHT, Math.min(newRight, maxRight));
+        setRightPanelWidthPx(newRight);
+      }
+    };
+    const onMouseUp = () => {
+      if (draggingSide) setDraggingSide(null);
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [draggingSide, isLeftPanelMinimized, leftPanelWidthPx, rightPanelWidthPx, showRightPanel]);
 
   const handleFileUpload = (data: any, fileType: 'json' | 'text' | 'log', fileName: string, fileSize?: string) => {
-    const parseResult = parseSnafflerData(data, fileType);
-    const results = parseResult.results;
-    const duplicateStats = parseResult.duplicateStats;
-    
-    setAllResults(results);
-    setLoadedFileName(fileName);
-    setLoadedFileSize(fileSize || '');
-    setCurrentView('dashboard'); // Switch to dashboard after file upload
-    
-    // Log duplicate statistics if any duplicates were found
-    if (duplicateStats && duplicateStats.duplicatesRemoved > 0) {
-      console.log(`Duplicate detection: ${duplicateStats.duplicatesRemoved} duplicates removed (${duplicateStats.duplicatePercentage}% of total)`);
-      setDuplicateStats(duplicateStats);
-    } else {
-      setDuplicateStats(null);
-    }
-    
-    // Calculate stats
-    const newStats = {
-      total: results.length,
-      red: results.filter((r: FileResult) => r.rating.toLowerCase() === 'red').length,
-      yellow: results.filter((r: FileResult) => r.rating.toLowerCase() === 'yellow').length,
-      green: results.filter((r: FileResult) => r.rating.toLowerCase() === 'green').length,
-      black: results.filter((r: FileResult) => r.rating.toLowerCase() === 'black').length
+    // Helper: detect GPO in plaintext
+    const looksLikeGPO = (text: string) => {
+      return /\[GPO\]/.test(text) && (/^\s*\|.*\|/m.test(text) || /\\___/.test(text));
     };
-    setStats(newStats);
-    
-    // Parse share data for Share Results section
-    const shares = parseShareData(data, fileType);
-    setShareResults(shares);
+
+    try {
+      if (fileType !== 'json') {
+        const rawText = Array.isArray(data) ? String(data[0]) : String(data);
+        if (looksLikeGPO(rawText)) {
+          const report = parseGPO(rawText);
+          // Persist GPO state
+          setGPOReport(report);
+          setLoadedFileName(fileName);
+          setLoadedFileSize(fileSize || '');
+          // Clear Snaffler state when loading GPO-only file
+          setAllResults([]);
+          setShareResults([]);
+          setStats({ total: 0, red: 0, yellow: 0, green: 0, black: 0 });
+          setDuplicateStats(null);
+          setCurrentView('GPO-results');
+          return;
+        }
+      }
+
+      // Default to Snaffler parsing
+      const parseResult = parseSnafflerData(data, fileType);
+      const results = parseResult.results;
+      const duplicateStats = parseResult.duplicateStats;
+      
+      setAllResults(results);
+      setLoadedFileName(fileName);
+      setLoadedFileSize(fileSize || '');
+      setCurrentView('dashboard');
+      setGPOReport(null);
+      
+      if (duplicateStats && duplicateStats.duplicatesRemoved > 0) {
+        console.log(`Duplicate detection: ${duplicateStats.duplicatesRemoved} duplicates removed (${duplicateStats.duplicatePercentage}% of total)`);
+        setDuplicateStats(duplicateStats);
+      } else {
+        setDuplicateStats(null);
+      }
+      
+      const newStats = {
+        total: results.length,
+        red: results.filter((r: FileResult) => r.rating.toLowerCase() === 'red').length,
+        yellow: results.filter((r: FileResult) => r.rating.toLowerCase() === 'yellow').length,
+        green: results.filter((r: FileResult) => r.rating.toLowerCase() === 'green').length,
+        black: results.filter((r: FileResult) => r.rating.toLowerCase() === 'black').length
+      };
+      setStats(newStats);
+      
+      const shares = parseShareData(data, fileType);
+      setShareResults(shares);
+    } catch (e) {
+      // Let outer error handling display the error
+      throw e;
+    }
   };
 
   const handleReset = () => {
@@ -140,6 +320,7 @@ function App() {
       black: 0
     });
     setShareResults([]);
+    setGPOReport(null);
     setDuplicateStats(null);
     setErrorInfo(null);
     
@@ -209,6 +390,106 @@ function App() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
+  const processFile = (file: File) => {
+    const fileType = file.name.endsWith('.json') ? 'json' : (file.name.endsWith('.log') ? 'log' : 'text');
+    const fileSize = formatFileSize(file.size);
+    file.text().then(text => {
+      try {
+        setErrorInfo(null);
+        if (fileType === 'json') {
+          const jsonData = JSON.parse(text);
+          handleFileUpload(jsonData, 'json', file.name, fileSize);
+        } else {
+          handleFileUpload([text], fileType, file.name, fileSize);
+        }
+      } catch (error: any) {
+        console.error('Error processing file:', error);
+        let snippet = '';
+        let errorPosition: number | undefined;
+        let tempErrorLineInfo: { actualErrorLine?: number; snippetStartLine?: number } = {};
+
+        if (fileType === 'json') {
+          let match: RegExpMatchArray | null = null;
+          const lineColumnMatch = error.message.match(/line (\d+) column (\d+)/);
+          if (lineColumnMatch) {
+            const lineNum = parseInt(lineColumnMatch[1], 10);
+            const colNum = parseInt(lineColumnMatch[2], 10);
+            const lines = text.split('\n');
+            let position = 0;
+            const targetLine = Math.min(lineNum - 1, lines.length - 1);
+            for (let i = 0; i < targetLine; i++) {
+              position += lines[i].length + 1;
+            }
+            position += colNum - 1;
+            match = [null as any, position.toString()] as any;
+          }
+          if (!match) match = error.message.match(/position (\d+)/);
+          if (!match) match = error.message.match(/at position (\d+)/);
+          if (!match) match = error.message.match(/column (\d+)/);
+
+          if (match) {
+            const absolutePosition = parseInt(match[1], 10);
+            let start: number, end: number, actualErrorLine: number | undefined, snippetStartLine: number | undefined;
+            if (lineColumnMatch) {
+              const lineNum = parseInt(lineColumnMatch[1], 10);
+              const lines = text.split('\n');
+              const startLine = Math.max(0, lineNum - 3);
+              const endLine = Math.min(lines.length, lineNum + 2);
+              start = 0;
+              for (let i = 0; i < startLine; i++) start += lines[i].length + 1;
+              end = start;
+              for (let i = startLine; i < endLine; i++) end += lines[i].length + 1;
+              end = Math.min(text.length, end);
+              actualErrorLine = lineNum;
+              snippetStartLine = startLine + 1;
+            } else {
+              start = Math.max(0, absolutePosition - 150);
+              end = Math.min(text.length, absolutePosition + 150);
+            }
+            snippet = text.substring(start!, end!);
+            let relativePosition = absolutePosition - start!;
+            if (start! > 0) { snippet = '...' + snippet; relativePosition += 3; }
+            if (end! < text.length) { snippet = snippet + '...'; }
+            errorPosition = relativePosition;
+            tempErrorLineInfo = { actualErrorLine, snippetStartLine };
+          } else {
+            const errorMsg = (error.message || '').toLowerCase();
+            if (errorMsg.includes('unexpected end') || errorMsg.includes('unterminated') || errorMsg.includes('expected') || errorMsg.includes('eof') || errorMsg.includes('end of') || errorMsg.includes('missing') || errorMsg.includes('incomplete')) {
+              const start = Math.max(0, text.length - 300);
+              snippet = text.substring(start);
+              if (start > 0) snippet = '...' + snippet;
+              errorPosition = text.length - (text.length - start);
+            } else {
+              snippet = text.substring(0, 300);
+              if (text.length > 300) snippet = snippet + '...';
+            }
+          }
+        } else {
+          snippet = text.substring(0, 300);
+          if (text.length > 300) snippet = snippet + '...';
+        }
+
+        setErrorInfo({
+          message: (error as any).message || 'An unknown error occurred while processing the file.',
+          snippet,
+          errorPosition,
+          fileName: file.name,
+          fileType,
+          actualLineNumber: tempErrorLineInfo?.actualErrorLine,
+          snippetStartLine: tempErrorLineInfo?.snippetStartLine
+        });
+      }
+    }).catch(error => {
+      console.error('Error reading file:', error);
+      setErrorInfo({
+        message: 'Error reading file. Please check if the file is corrupted or unreadable.',
+        fileName: file.name,
+        fileType
+      });
+    });
+  };
+
+
   // Handle click outside to close column dropdown and export dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -220,6 +501,10 @@ function App() {
       const exportDropdown = document.getElementById('export-dropdown');
       if (exportDropdown && !exportDropdown.contains(event.target as Node)) {
         setShowExportDropdown(false);
+      }
+      const headerExportDropdown = document.getElementById('header-export-dropdown');
+      if (headerExportDropdown && !headerExportDropdown.contains(event.target as Node)) {
+        setShowHeaderExport(false);
       }
     };
 
@@ -256,7 +541,23 @@ function App() {
   }, [selectedResult]);
 
   const handleToggleLeftPanel = () => {
-    setIsLeftPanelMinimized(!isLeftPanelMinimized);
+    setIsLeftPanelMinimized(prev => {
+      const next = !prev;
+      if (next) {
+        // minimizing: remember current
+        previousLeftWidthRef.current = leftPanelWidthPx;
+        setLeftPanelWidthPx(50);
+      } else {
+        // restoring: use previous width, respecting constraints
+        const ww = window.innerWidth;
+        const MIN_LEFT = 180;
+        const MIN_CENTER = 480;
+        const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - MIN_CENTER;
+        const restored = Math.max(MIN_LEFT, Math.min(previousLeftWidthRef.current || 300, maxLeft));
+        setLeftPanelWidthPx(restored);
+      }
+      return next;
+    });
   };
 
   // Dashboard navigation and filtering functions
@@ -444,68 +745,25 @@ function App() {
     });
   };
 
-  // CSV Export function
-  const exportToCSV = () => {
-    // Filter out false positives for CSV export
-    const exportResults = filteredResults.filter(result => {
-      const key = `${result.fullPath}-${result.fileName}`;
-      return !falsePositives.has(key);
-    });
-    
-    if (exportResults.length === 0) return;
+  // Unified export handlers for current view
+  const handleExportCSV = async () => {
+    if (currentView === 'file-results') {
+      exportFileResultsToCSV(filteredResults, visibleColumns, falsePositives);
+    } else if (currentView === 'share-results') {
+      exportShareResultsToCSV(shareResults);
+    } else if (currentView === 'GPO-results' && GPOReport) {
+      exportGPOToCSV(GPOReport);
+    }
+  };
 
-    // Create CSV headers based on visible columns
-    const headers: string[] = [];
-    if (visibleColumns.rating) headers.push('Rating');
-    if (visibleColumns.fullPath) headers.push('Full Path');
-    if (visibleColumns.creationTime) headers.push('Creation Time');
-    if (visibleColumns.lastModified) headers.push('Last Modified');
-    if (visibleColumns.size) headers.push('Size');
-
-    // Helper function to format date
-    const formatDate = (dateString: string) => {
-      try {
-        return format(new Date(dateString), 'dd/MM/yyyy HH:mm:ss');
-      } catch {
-        return dateString;
-      }
-    };
-
-    // Helper function to format file size
-    const formatFileSize = (size: string) => {
-      const sizeNum = parseInt(size);
-      if (isNaN(sizeNum)) return size;
-      
-      if (sizeNum < 1024) return `${sizeNum} B`;
-      if (sizeNum < 1024 * 1024) return `${(sizeNum / 1024).toFixed(1)} KB`;
-      if (sizeNum < 1024 * 1024 * 1024) return `${(sizeNum / (1024 * 1024)).toFixed(1)} MB`;
-      return `${(sizeNum / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-    };
-
-    // Create CSV content
-    const csvContent = [
-      headers.join(','),
-      ...exportResults.map(result => {
-        const row: string[] = [];
-        if (visibleColumns.rating) row.push(`"${result.rating}"`);
-        if (visibleColumns.fullPath) row.push(`"${result.fullPath.replace(/"/g, '""')}"`);
-        if (visibleColumns.creationTime) row.push(`"${formatDate(result.creationTime)}"`);
-        if (visibleColumns.lastModified) row.push(`"${formatDate(result.lastModified)}"`);
-        if (visibleColumns.size) row.push(`"${formatFileSize(result.size)}"`);
-        return row.join(',');
-      })
-    ].join('\n');
-
-    // Create and download the file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `snaffler-results-${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportXLSX = async () => {
+    if (currentView === 'file-results') {
+      await exportFileResultsToXLSX(allResults, filteredResults, visibleColumns, falsePositives, stats, loadedFileName);
+    } else if (currentView === 'share-results') {
+      await exportShareResultsToXLSX(shareResults);
+    } else if (currentView === 'GPO-results' && GPOReport) {
+      await exportGPOToXLSX(GPOReport);
+    }
   };
 
   // XLSX Export function
@@ -731,24 +989,32 @@ function App() {
       case 'dashboard':
         return (
           <div className="dashboard-container">
-            <Dashboard 
-              stats={stats} 
-              allResults={allResults} 
-              shareResults={shareResults}
-              credentialsKeywords={CREDENTIALS_KEYWORDS}
-              onNavigateToResults={handleNavigateToResults}
-              onFilterBySystem={handleFilterBySystem}
-              onFilterByShare={handleFilterByShare}
-              onFilterByExtension={handleFilterByExtension}
-              onSelectFile={handleSelectFile}
-            />
+            {GPOReport ? (
+              <GPODashboard report={GPOReport} />
+            ) : (
+              <Dashboard 
+                stats={stats} 
+                allResults={allResults} 
+                shareResults={shareResults}
+                credentialsKeywords={CREDENTIALS_KEYWORDS}
+                onNavigateToResults={handleNavigateToResults}
+                onFilterBySystem={handleFilterBySystem}
+                onFilterByShare={handleFilterByShare}
+                onFilterByExtension={handleFilterByExtension}
+                onSelectFile={handleSelectFile}
+              />
+            )}
           </div>
         );
       
       case 'file-results':
         return (
           <div className="main-content">
-            <div className={`left-panel ${isLeftPanelMinimized ? 'minimized' : ''}`} ref={filtersPanelRef}>
+            <div 
+              className={`left-panel ${isLeftPanelMinimized ? 'minimized' : ''}`} 
+              ref={filtersPanelRef}
+              style={{ width: isLeftPanelMinimized ? 50 : leftPanelWidthPx }}
+            >
               <div className="panel-header">
                 <span>Filters</span>
                 <button className="minimize-button" onClick={handleToggleLeftPanel}>
@@ -777,7 +1043,13 @@ function App() {
               </div>
             </div>
 
-            <div className={`center-panel ${isLeftPanelMinimized ? 'expanded' : ''} ${showRightPanel ? 'with-right-panel' : ''}`}>
+            <div 
+              className={`center-panel ${isLeftPanelMinimized ? 'expanded' : ''} ${showRightPanel ? 'with-right-panel' : ''}`}
+              style={{ 
+                left: isLeftPanelMinimized ? 50 : leftPanelWidthPx, 
+                right: showRightPanel ? rightPanelWidthPx : 0 
+              }}
+            >
               <div className="table-container">
                 <div className="table-header">
                   <div className="table-header-content">
@@ -899,8 +1171,8 @@ function App() {
                             <button 
                               className="export-dropdown-item"
                               title="Export current results to CSV"
-                              onClick={() => {
-                                exportToCSV();
+                              onClick={async () => {
+                                await handleExportCSV();
                                 setShowExportDropdown(false);
                               }}
                             >
@@ -910,8 +1182,8 @@ function App() {
                             <button 
                               className="export-dropdown-item"
                               title="Export current results to XLSX"
-                              onClick={() => {
-                                exportToXLSX();
+                              onClick={async () => {
+                                await handleExportXLSX();
                                 setShowExportDropdown(false);
                               }}
                             >
@@ -953,7 +1225,10 @@ function App() {
               </div>
             </div>
 
-            <div className={`right-panel ${!showRightPanel ? 'hidden' : ''}`}>
+            <div 
+              className={`right-panel ${!showRightPanel ? 'hidden' : ''}`}
+              style={{ width: rightPanelWidthPx }}
+            >
               <div className="panel-header">
                 <span>Details</span>
                 <button className="close-button" onClick={handleCloseRightPanel}>
@@ -969,6 +1244,20 @@ function App() {
                 />
               </div>
             </div>
+
+            {/* Resizers */}
+            <div 
+              ref={leftResizerRef}
+              className={`resizer resizer-left ${isLeftPanelMinimized ? 'hidden' : ''} ${draggingSide === 'left' ? 'dragging' : ''}`}
+              style={{ left: isLeftPanelMinimized ? 50 : leftPanelWidthPx }}
+              onMouseDown={(e) => { e.preventDefault(); setDraggingSide('left'); }}
+            />
+            <div 
+              ref={rightResizerRef}
+              className={`resizer resizer-right ${showRightPanel ? '' : 'hidden'} ${draggingSide === 'right' ? 'dragging' : ''}`}
+              style={{ right: rightPanelWidthPx }}
+              onMouseDown={(e) => { e.preventDefault(); setDraggingSide('right'); }}
+            />
           </div>
         );
       
@@ -978,6 +1267,14 @@ function App() {
             <ShareResults shareResults={shareResults} />
           </div>
         );
+      case 'GPO-results':
+        return (
+          <>
+            {GPOReport && (
+              <GPOResults report={GPOReport} />
+            )}
+          </>
+        );
       
       default:
         return null;
@@ -986,7 +1283,7 @@ function App() {
 
   return (
     <div className="App">
-      {allResults.length > 0 && (
+      {(allResults.length > 0 || GPOReport) && (
         <header className="header">
           <div className="header-content">
             <div className="header-left">
@@ -1006,6 +1303,42 @@ function App() {
                   <span className="file-stats">{stats.total} files</span>
                 </div>
                 <div className="file-actions">
+                  <div className="export-dropdown-container" id="header-export-dropdown">
+                    <button 
+                      className="action-button dropdown-button"
+                      onClick={() => setShowHeaderExport(!showHeaderExport)}
+                      disabled={
+                        (currentView === 'file-results' && filteredResults.length === 0) ||
+                        (currentView === 'share-results' && shareResults.length === 0) ||
+                        (currentView === 'GPO-results' && !GPOReport)
+                      }
+                      title="Export current view"
+                    >
+                      <i className="fas fa-download button-icon"></i>
+                      Export
+                      <i className="fas fa-chevron-down dropdown-arrow"></i>
+                    </button>
+                    {showHeaderExport && (
+                      <div className="export-dropdown-menu">
+                        <button 
+                          className="export-dropdown-item"
+                          title="Export to CSV"
+                          onClick={async () => { await handleExportCSV(); setShowHeaderExport(false); }}
+                        >
+                          <i className="fas fa-file-csv"></i>
+                          Export CSV
+                        </button>
+                        <button 
+                          className="export-dropdown-item"
+                          title="Export to XLSX"
+                          onClick={async () => { await handleExportXLSX(); setShowHeaderExport(false); }}
+                        >
+                          <i className="fas fa-file-excel"></i>
+                          Export XLSX
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <button className="action-button clear-button" onClick={handleReset}>
                     <i className="fas fa-times button-icon"></i>
                     Clear
@@ -1029,159 +1362,11 @@ function App() {
         onChange={(e) => {
           const files = e.target.files;
           if (files && files.length > 0) {
-            const file = files[0];
-            const fileType = file.name.endsWith('.json') ? 'json' : (file.name.endsWith('.log') ? 'log' : 'text');
-            const fileSize = formatFileSize(file.size);
-            file.text().then(text => {
-              try {
-                setErrorInfo(null); // Clear previous errors
-                if (fileType === 'json') {
-                  const jsonData = JSON.parse(text);
-                  handleFileUpload(jsonData, 'json', file.name, fileSize);
-                } else {
-                  handleFileUpload([text], fileType, file.name, fileSize);
-                }
-              } catch (error: any) {
-                console.error('Error processing file:', error);
-                let snippet = '';
-                let errorPosition: number | undefined;
-                let tempErrorLineInfo: { actualErrorLine?: number; snippetStartLine?: number } = {};
-                
-                // For JSON files, we know this is a JSON parsing error
-                if (fileType === 'json') {
-                  // Try different patterns for error position (check line/column first!)
-                  let match = null;
-                  
-                  // First check for "line X column Y" format
-                  const lineColumnMatch = error.message.match(/line (\d+) column (\d+)/);
-                                        if (lineColumnMatch) {
-                        const lineNum = parseInt(lineColumnMatch[1], 10);
-                        const colNum = parseInt(lineColumnMatch[2], 10);
-                        
-                        // Calculate approximate position by finding the line
-                        const lines = text.split('\n');
-                        let position = 0;
-                        const targetLine = Math.min(lineNum - 1, lines.length - 1); // Ensure we don't go beyond file
-                        
-                        for (let i = 0; i < targetLine; i++) {
-                          position += lines[i].length + 1; // +1 for newline
-                        }
-                        position += colNum - 1; // Add column offset (0-based)
-                        
-                        match = [null, position.toString()]; // Fake match array for consistency
-                      }
-                    
-                  // Then try other position patterns
-                  if (!match) {
-                    match = error.message.match(/position (\d+)/);
-                  }
-                  if (!match) {
-                    match = error.message.match(/at position (\d+)/);
-                  }
-                  if (!match) {
-                    match = error.message.match(/column (\d+)/);
-                  }
-                  
-                  if (match) {
-                    const absolutePosition = parseInt(match[1], 10);
-                    
-                    // For line/column errors, show more context lines
-                    let start, end, actualErrorLine, snippetStartLine;
-                    if (lineColumnMatch) {
-                      // Show ±2 lines around the error for compact view
-                      const lineNum = parseInt(lineColumnMatch[1], 10);
-                      const lines = text.split('\n');
-                      const startLine = Math.max(0, lineNum - 3); // 2 lines before + current line
-                      const endLine = Math.min(lines.length, lineNum + 2); // 2 lines after
-                      
-                      // Calculate character positions for these lines
-                      start = 0;
-                      for (let i = 0; i < startLine; i++) {
-                        start += lines[i].length + 1; // +1 for newline
-                      }
-                      
-                      end = start;
-                      for (let i = startLine; i < endLine; i++) {
-                        end += lines[i].length + 1; // +1 for newline
-                      }
-                      end = Math.min(text.length, end);
-                      
-                      actualErrorLine = lineNum;
-                      snippetStartLine = startLine + 1; // Convert to 1-based
-                    } else {
-                      // Fallback to character-based snippet
-                      start = Math.max(0, absolutePosition - 150);
-                      end = Math.min(text.length, absolutePosition + 150);
-                      actualErrorLine = undefined;
-                      snippetStartLine = undefined;
-                    }
-                    
-                    snippet = text.substring(start, end);
-                    
-                    // Calculate relative position within the snippet
-                    let relativePosition = absolutePosition - start;
-                    if (start > 0) {
-                      snippet = '...' + snippet;
-                      relativePosition += 3; // Account for the '...' prefix
-                    }
-                    if (end < text.length) {
-                      snippet = snippet + '...';
-                    }
-                    
-                    errorPosition = relativePosition;
-                    
-                    // Store line info for error display
-                    tempErrorLineInfo = { actualErrorLine, snippetStartLine };
-                  } else {
-                    // For errors without position, check if it's an end-of-file error
-                    const errorMsg = error.message.toLowerCase();
-                    
-                    if (errorMsg.includes('unexpected end') || 
-                        errorMsg.includes('unterminated') ||
-                        errorMsg.includes('expected') ||
-                        errorMsg.includes('eof') ||
-                        errorMsg.includes('end of') ||
-                        errorMsg.includes('missing') ||
-                        errorMsg.includes('incomplete')) {
-                      // Show last 300 characters for end-of-file errors
-                      const start = Math.max(0, text.length - 300);
-                      snippet = text.substring(start);
-                      if (start > 0) snippet = '...' + snippet;
-                      errorPosition = text.length - (text.length - start); // Relative position within snippet
-                    } else {
-                      // Default to beginning for other JSON errors
-                      snippet = text.substring(0, 300);
-                      if (text.length > 300) snippet = snippet + '...';
-                    }
-                  }
-                } else {
-                  // Non-JSON files
-                  snippet = text.substring(0, 300);
-                  if (text.length > 300) snippet = snippet + '...';
-                }
-
-                setErrorInfo({
-                  message: error.message || 'An unknown error occurred while processing the file.',
-                  snippet: snippet,
-                  errorPosition: errorPosition,
-                  fileName: file.name,
-                  fileType: fileType,
-                  actualLineNumber: tempErrorLineInfo?.actualErrorLine,
-                  snippetStartLine: tempErrorLineInfo?.snippetStartLine
-                });
-              }
-                            }).catch(error => {
-                console.error('Error reading file:', error);
-                setErrorInfo({
-                  message: 'Error reading file. Please check if the file is corrupted or unreadable.',
-                  fileName: file.name,
-                  fileType: fileType
-                });
-              });
-            }
-          }}
-          style={{ display: 'none' }}
-        />
+            processFile(files[0]);
+          }
+        }}
+        style={{ display: 'none' }}
+      />
 
       {errorInfo ? (
         <ErrorDisplay 
@@ -1194,7 +1379,7 @@ function App() {
           snippetStartLine={errorInfo.snippetStartLine}
           onClearError={handleClearError}
         />
-      ) : allResults.length === 0 ? (
+      ) : (allResults.length === 0 && !GPOReport) ? (
         <div className="landing-page">
           <div className="landing-content">
             <FileUpload 
@@ -1203,6 +1388,7 @@ function App() {
               loadedFileName={loadedFileName}
               onThemeToggle={handleThemeToggle}
               isDarkTheme={isDarkTheme}
+              onProcessFile={processFile}
             />
           </div>
         </div>
@@ -1211,7 +1397,8 @@ function App() {
           <Navigation 
             currentView={currentView}
             onViewChange={setCurrentView}
-            hasData={allResults.length > 0}
+            hasShareData={allResults.length > 0}
+            hasGPOData={!!GPOReport}
           />
           {renderCurrentView()}
         </>
