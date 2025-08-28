@@ -3168,17 +3168,6 @@ tr.selected:hover td {
   opacity: 0.8;
 }
 
-/* Regex highlighting styles */
-.regex-highlight {
-  color: #ffffff;
-  font-weight: bold;
-}
-
-/* Light theme adjustments for regex highlighting */
-[data-theme="light"] .regex-highlight {
-  color: #000000;
-}
-
 /* Drag & Drop styles for landing */
 .landing-description.drag-active {
   outline: 2px dashed var(--accent);

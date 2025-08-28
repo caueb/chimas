@@ -32,47 +32,6 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ selectedResult, onClos
     }
   };
 
-  // Function to highlight regex matches in the match context
-  const highlightMatches = (context: string, patterns: string[]) => {
-    if (!patterns || patterns.length === 0) {
-      return context;
-    }
-
-    let highlightedText = context;
-    
-    patterns.forEach((pattern, index) => {
-      try {
-        // Create a regex from the pattern, handling special characters
-        const regex = new RegExp(pattern, 'gi');
-        const matches = highlightedText.match(regex);
-        
-        if (matches) {
-          // Replace each match with a highlighted version
-          matches.forEach(match => {
-            const highlightedMatch = `<span class="regex-highlight" data-pattern="${pattern}">${match}</span>`;
-            highlightedText = highlightedText.replace(match, highlightedMatch);
-          });
-        }
-      } catch (error) {
-        // If regex is invalid, just highlight the pattern as literal text
-        const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const literalRegex = new RegExp(escapedPattern, 'gi');
-        const matches = highlightedText.match(literalRegex);
-        
-        if (matches) {
-          matches.forEach(match => {
-            const highlightedMatch = `<span class="regex-highlight" data-pattern="${pattern}">${match}</span>`;
-            highlightedText = highlightedText.replace(match, highlightedMatch);
-          });
-        }
-      }
-    });
-    
-    return highlightedText;
-  };
-
-  const highlightedContext = highlightMatches(selectedResult.matchContext, selectedResult.matchedStrings);
-
   return (
     <div className="detail-panel">
       <div className="detail-section">
@@ -85,10 +44,9 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ selectedResult, onClos
       <div className="detail-section">
         <div className="detail-label">MATCH CONTEXT</div>
         <div className="detail-value-container">
-          <pre 
-            className="detail-value context" 
-            dangerouslySetInnerHTML={{ __html: highlightedContext }}
-          />
+          <pre className="detail-value context">
+            {selectedResult.matchContext}
+          </pre>
         </div>
       </div>
 
