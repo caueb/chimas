@@ -106,7 +106,6 @@ function App() {
 
   // Export dropdown state
   const [showExportDropdown, setShowExportDropdown] = useState(false);
-  const [showHeaderExport, setShowHeaderExport] = useState(false);
 
   // Refs
   const filtersPanelRef = useRef<HTMLDivElement>(null);
@@ -262,7 +261,17 @@ function App() {
           // Clear Snaffler state when loading GPO-only file
           setAllResults([]);
           setShareResults([]);
-          setStats({ total: 0, red: 0, yellow: 0, green: 0, black: 0 });
+          
+          // Calculate total GPO settings count
+          const totalSettings = report.gpos.reduce((total, gpo) => total + gpo.settings.length, 0);
+          setStats({ 
+            total: totalSettings, 
+            red: 0, 
+            yellow: 0, 
+            green: 0, 
+            black: 0 
+          });
+          
           setDuplicateStats(null);
           setCurrentView('GPO-results');
           return;
@@ -501,10 +510,6 @@ function App() {
       const exportDropdown = document.getElementById('export-dropdown');
       if (exportDropdown && !exportDropdown.contains(event.target as Node)) {
         setShowExportDropdown(false);
-      }
-      const headerExportDropdown = document.getElementById('header-export-dropdown');
-      if (headerExportDropdown && !headerExportDropdown.contains(event.target as Node)) {
-        setShowHeaderExport(false);
       }
     };
 
@@ -1300,45 +1305,11 @@ function App() {
                   <span className="file-separator">•</span>
                   <span className="file-size">{loadedFileSize}</span>
                   <span className="file-separator">•</span>
-                  <span className="file-stats">{stats.total} files</span>
+                  <span className="file-stats">
+                    {GPOReport ? `${stats.total} settings` : `${stats.total} files`}
+                  </span>
                 </div>
                 <div className="file-actions">
-                  <div className="export-dropdown-container" id="header-export-dropdown">
-                    <button 
-                      className="action-button dropdown-button"
-                      onClick={() => setShowHeaderExport(!showHeaderExport)}
-                      disabled={
-                        (currentView === 'file-results' && filteredResults.length === 0) ||
-                        (currentView === 'share-results' && shareResults.length === 0) ||
-                        (currentView === 'GPO-results' && !GPOReport)
-                      }
-                      title="Export current view"
-                    >
-                      <i className="fas fa-download button-icon"></i>
-                      Export
-                      <i className="fas fa-chevron-down dropdown-arrow"></i>
-                    </button>
-                    {showHeaderExport && (
-                      <div className="export-dropdown-menu">
-                        <button 
-                          className="export-dropdown-item"
-                          title="Export to CSV"
-                          onClick={async () => { await handleExportCSV(); setShowHeaderExport(false); }}
-                        >
-                          <i className="fas fa-file-csv"></i>
-                          Export CSV
-                        </button>
-                        <button 
-                          className="export-dropdown-item"
-                          title="Export to XLSX"
-                          onClick={async () => { await handleExportXLSX(); setShowHeaderExport(false); }}
-                        >
-                          <i className="fas fa-file-excel"></i>
-                          Export XLSX
-                        </button>
-                      </div>
-                    )}
-                  </div>
                   <button className="action-button clear-button" onClick={handleReset}>
                     <i className="fas fa-times button-icon"></i>
                     Clear

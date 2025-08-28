@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { GPOReport } from '../utils/GPOParser';
+import { exportGPOToCSV, exportGPOToXLSX } from '../utils/exporter';
 
 interface GPOResultsProps {
 	report: GPOReport;
@@ -15,6 +16,7 @@ const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
 	const [sortField, setSortField] = useState<'gpo' | 'scope' | 'category' | 'entries' | 'findings' | 'severity'>('severity');
 	const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+	const [showExportDropdown, setShowExportDropdown] = useState(false);
 
 	// Panel sizing and persistence
 	const [leftPanelWidthPx, setLeftPanelWidthPx] = useState<number>(300);
@@ -24,8 +26,26 @@ const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
 	const windowWidthRef = useRef<number>(typeof window !== 'undefined' ? window.innerWidth : 1440);
 	const leftResizerRef = useRef<HTMLDivElement>(null);
 	const rightResizerRef = useRef<HTMLDivElement>(null);
+	const tableRef = useRef<HTMLTableElement>(null);
 
 	const showRightPanel = selectedIndex !== null;
+
+	// Handle click outside to close export dropdown
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			const exportDropdown = document.getElementById('gpo-export-dropdown');
+			if (exportDropdown && !exportDropdown.contains(event.target as Node)) {
+				setShowExportDropdown(false);
+			}
+		};
+
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside);
+		};
+	}, []);
+
+
 
 	const getStoredPct = (key: string, fallback: number) => {
 		try {
@@ -276,6 +296,55 @@ const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
 	const pageStart = (currentPage - 1) * pageSize;
 	const currentPageData = sorted.slice(pageStart, pageStart + pageSize);
 
+	// Handle keyboard navigation
+	useEffect(() => {
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (selectedIndex === null || currentPageData.length === 0) return;
+
+			const currentIndex = currentPageData.findIndex(item => item.index === selectedIndex);
+			if (currentIndex === -1) return;
+
+			let newIndex = currentIndex;
+
+			switch (event.key) {
+				case 'ArrowDown':
+					event.preventDefault();
+					newIndex = Math.min(currentIndex + 1, currentPageData.length - 1);
+					break;
+				case 'ArrowUp':
+					event.preventDefault();
+					newIndex = Math.max(currentIndex - 1, 0);
+					break;
+				default:
+					return;
+			}
+
+			if (newIndex !== currentIndex) {
+				setSelectedIndex(currentPageData[newIndex].index);
+				
+				// Scroll the new row into view
+				setTimeout(() => {
+					const rows = tableRef.current?.querySelectorAll('tbody tr');
+					if (rows && rows[newIndex]) {
+						rows[newIndex].scrollIntoView({
+							behavior: 'smooth',
+							block: 'nearest'
+						});
+					}
+				}, 0);
+			}
+		};
+
+		// Only add event listener if we have a selected result
+		if (selectedIndex !== null) {
+			document.addEventListener('keydown', handleKeyDown);
+		}
+
+		return () => {
+			document.removeEventListener('keydown', handleKeyDown);
+		};
+	}, [selectedIndex, currentPageData]);
+
 	const handleSort = (field: typeof sortField) => {
 		if (sortField === field) {
 			setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -352,6 +421,44 @@ const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
 								</div>
 							</div>
 							<div className="table-controls">
+								<div className="export-dropdown-container">
+									<button 
+										className="action-button dropdown-button"
+										onClick={() => setShowExportDropdown(!showExportDropdown)}
+										disabled={sorted.length === 0}
+										title="Export current results"
+									>
+										<i className="fas fa-download button-icon"></i>
+										Export
+										<i className="fas fa-chevron-down dropdown-arrow"></i>
+									</button>
+									{showExportDropdown && (
+										<div className="export-dropdown-menu">
+											<button 
+												className="export-dropdown-item"
+												title="Export current results to CSV"
+												onClick={async () => {
+													exportGPOToCSV(report);
+													setShowExportDropdown(false);
+												}}
+											>
+												<i className="fas fa-file-csv"></i>
+												Export CSV
+											</button>
+											<button 
+												className="export-dropdown-item"
+												title="Export current results to XLSX"
+												onClick={async () => {
+													exportGPOToXLSX(report);
+													setShowExportDropdown(false);
+												}}
+											>
+												<i className="fas fa-file-excel"></i>
+												Export XLSX
+											</button>
+										</div>
+									)}
+								</div>
 								<div className="results-count">
 									Showing {sorted.length} of {totalSettings} settings
 								</div>
@@ -360,7 +467,7 @@ const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
 					</div>
 
 					<div className="table-wrapper">
-						<table>
+						<table ref={tableRef}>
 							<thead>
 								<tr>
 									<th className={getSortIcon('severity')} onClick={() => handleSort('severity')}>Severity</th>
@@ -515,5 +622,3 @@ const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
 };
 
 export default GPOResults;
-
-
