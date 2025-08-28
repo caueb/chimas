@@ -40,6 +40,7 @@ export function exportFileResultsToCSV(
   if (visibleColumns.creationTime) headers.push('Creation Time');
   if (visibleColumns.lastModified) headers.push('Last Modified');
   if (visibleColumns.size) headers.push('Size');
+  headers.push('Match Context');
 
   const csvContent = [
     headers.join(','),
@@ -50,6 +51,7 @@ export function exportFileResultsToCSV(
       if (visibleColumns.creationTime) row.push(`"${formatDate(result.creationTime)}"`);
       if (visibleColumns.lastModified) row.push(`"${formatDate(result.lastModified)}"`);
       if (visibleColumns.size) row.push(`"${formatFileSize(result.size)}"`);
+      row.push(`"${(result.matchContext || '').replace(/"/g, '""')}"`);
       return row.join(',');
     })
   ].join('\n');
@@ -117,6 +119,8 @@ export async function exportFileResultsToXLSX(
   if (visibleColumns.creationTime) { headers.push({ header: 'Creation Time', key: 'creationTime', width: 20 }); colKeys.push('creationTime'); }
   if (visibleColumns.lastModified) { headers.push({ header: 'Last Modified', key: 'lastModified', width: 20 }); colKeys.push('lastModified'); }
   if (visibleColumns.size) { headers.push({ header: 'Size', key: 'size', width: 12 }); colKeys.push('size'); }
+  headers.push({ header: 'Match Context', key: 'matchContext', width: 80 });
+  colKeys.push('matchContext');
   resultsSheet.columns = headers;
 
   exportResults.forEach(result => {
@@ -126,6 +130,7 @@ export async function exportFileResultsToXLSX(
     if (visibleColumns.creationTime) rowData.creationTime = formatDate(result.creationTime);
     if (visibleColumns.lastModified) rowData.lastModified = formatDate(result.lastModified);
     if (visibleColumns.size) rowData.size = formatFileSize(result.size);
+    rowData.matchContext = result.matchContext || '';
     const row = resultsSheet.addRow(rowData);
     if (visibleColumns.rating && result.rating) {
       const ratingColumnIndex = colKeys.indexOf('rating') + 1;
@@ -522,5 +527,3 @@ export async function exportGPOToXLSX(report: GPOReport) {
   link.click();
   document.body.removeChild(link);
 }
-
-
