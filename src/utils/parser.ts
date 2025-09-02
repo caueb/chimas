@@ -21,15 +21,14 @@ function parseMatchContext(matchContext: string): string {
       
       // Handle quotes and backslashes
       .replace(/\\"/g, '"')      // Convert \" to actual quotes
-      .replace(/\\\\/g, '\\')    // Convert \\ to actual backslashes
-      
-      // Handle other escaped characters
-      .replace(/\\([^\\])/g, '$1');  // Remove backslashes from other characters
+      .replace(/\\\\/g, '\\');   // Convert \\ to actual backslashes
+    
+    // Only unescape characters that are commonly escaped in text content
+    parsed = parsed.replace(/\\([\[\](){}.*+?^$|#<>])/g, '$1');
     
     // Clean up excessive whitespace while preserving newlines
     parsed = parsed
       .replace(/\n\s*\n/g, '\n')  // Remove empty lines
-      .replace(/[ \t]+/g, ' ')    // Normalize multiple spaces/tabs to single space (but preserve newlines)
       .trim();
     
     return parsed;
@@ -937,4 +936,3 @@ function parseTextShareLine(line: string): ShareResult | null {
 
   return null;
 }
-
