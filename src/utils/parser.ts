@@ -151,95 +151,112 @@ function parseJsonFileEntry(entry: SnafflerEntry): FileResult[] {
     // Extract data from eventProperties
     const eventProps = entry.eventProperties;
     
-    // Look for color keys (Red, Green, Yellow, Black) that contain FileResult data
-    const colorKeys = ['Red', 'Green', 'Yellow', 'Black'];
-    
-    for (const colorKey of colorKeys) {
-      if (eventProps[colorKey] && eventProps[colorKey].FileResult) {
-        const fileResult = eventProps[colorKey].FileResult;
-        
-        if (fileResult.FileInfo && fileResult.TextResult && fileResult.MatchedRule) {
-          // Parse the match context to handle escaped characters
-          const rawMatchContext = fileResult.TextResult.MatchContext || '';
-          const parsedMatchContext = parseMatchContext(rawMatchContext);
+    // Case 1: Check if eventProperties contains structured FileResult data
+    if (Object.keys(eventProps).length > 0) {
+      // Look for color keys (Red, Green, Yellow, Black) that contain FileResult data
+      const colorKeys = ['Red', 'Green', 'Yellow', 'Black'];
+      
+      for (const colorKey of colorKeys) {
+        if (eventProps[colorKey] && eventProps[colorKey].FileResult) {
+          const fileResult = eventProps[colorKey].FileResult;
           
-          // Use UTC timestamps if available, fall back to regular timestamps
-          const creationTime = fileResult.FileInfo.CreationTimeUtc || fileResult.FileInfo.CreationTime || '';
-          const lastModified = fileResult.FileInfo.LastWriteTimeUtc || fileResult.FileInfo.LastWriteTime || '';
-          
-          const result: FileResult = {
-            rating: colorKey as 'Red' | 'Green' | 'Yellow' | 'Black',
-            fullPath: fileResult.FileInfo.FullName || '',
-            fileName: fileResult.FileInfo.Name || '',
-            creationTime: creationTime,
-            lastModified: lastModified,
-            size: fileResult.FileInfo.Length?.toString() || '0',
-            matchContext: parsedMatchContext,
-            ruleName: fileResult.MatchedRule.RuleName || '',
-            matchedStrings: fileResult.TextResult.MatchedStrings || [],
-            triage: fileResult.MatchedRule.Triage || '',
-            rwStatus: fileResult.RwStatus ? {
-              readable: fileResult.RwStatus.CanRead || false,
-              writable: fileResult.RwStatus.CanWrite || false,
-              executable: false, // Not available in this RwStatus object
-              deleteable: fileResult.RwStatus.CanModify || false
-            } : undefined
-          };
-          
-          // Debug logging for timestamps
-          if (debugMode) {
-            console.log(`Processing entry: ${result.fullPath} (${result.rating}) - Rule: ${result.ruleName}`);
-            console.log(`  Raw CreationTime: "${fileResult.FileInfo.CreationTime}"`);
-            console.log(`  Raw CreationTimeUtc: "${fileResult.FileInfo.CreationTimeUtc}"`);
-            console.log(`  Raw LastWriteTime: "${fileResult.FileInfo.LastWriteTime}"`);
-            console.log(`  Raw LastWriteTimeUtc: "${fileResult.FileInfo.LastWriteTimeUtc}"`);
-            console.log(`  Raw LastAccessTime: "${fileResult.FileInfo.LastAccessTime}"`);
-            console.log(`  Raw LastAccessTimeUtc: "${fileResult.FileInfo.LastAccessTimeUtc}"`);
-            console.log(`  Using CreationTime: "${result.creationTime}"`);
-            console.log(`  Using LastModified: "${result.lastModified}"`);
+          if (fileResult.FileInfo && fileResult.TextResult && fileResult.MatchedRule) {
+            // Parse the match context to handle escaped characters
+            const rawMatchContext = fileResult.TextResult.MatchContext || '';
+            const parsedMatchContext = parseMatchContext(rawMatchContext);
             
-            // Validate timestamp logic
-            if (creationTime && lastModified) {
-              try {
-                const creationDate = new Date(creationTime);
-                const modifiedDate = new Date(lastModified);
-                
-                if (creationDate > modifiedDate) {
-                  console.warn(`⚠️  SUSPICIOUS TIMESTAMPS: Creation time (${creationTime}) is after last modified time (${lastModified}) for file: ${result.fullPath}`);
-                  console.warn(`   This could indicate file manipulation, data recovery, or file system inconsistencies.`);
+            // Use UTC timestamps if available, fall back to regular timestamps
+            const creationTime = fileResult.FileInfo.CreationTimeUtc || fileResult.FileInfo.CreationTime || '';
+            const lastModified = fileResult.FileInfo.LastWriteTimeUtc || fileResult.FileInfo.LastWriteTime || '';
+            
+            const result: FileResult = {
+              rating: colorKey as 'Red' | 'Green' | 'Yellow' | 'Black',
+              fullPath: fileResult.FileInfo.FullName || '',
+              fileName: fileResult.FileInfo.Name || '',
+              creationTime: creationTime,
+              lastModified: lastModified,
+              size: fileResult.FileInfo.Length?.toString() || '0',
+              matchContext: parsedMatchContext,
+              ruleName: fileResult.MatchedRule.RuleName || '',
+              matchedStrings: fileResult.TextResult.MatchedStrings || [],
+              triage: fileResult.MatchedRule.Triage || '',
+              rwStatus: fileResult.RwStatus ? {
+                readable: fileResult.RwStatus.CanRead || false,
+                writable: fileResult.RwStatus.CanWrite || false,
+                executable: false, // Not available in this RwStatus object
+                deleteable: fileResult.RwStatus.CanModify || false
+              } : undefined
+            };
+            
+            // Debug logging for timestamps
+            if (debugMode) {
+              console.log(`Processing entry: ${result.fullPath} (${result.rating}) - Rule: ${result.ruleName}`);
+              console.log(`  Raw CreationTime: "${fileResult.FileInfo.CreationTime}"`);
+              console.log(`  Raw CreationTimeUtc: "${fileResult.FileInfo.CreationTimeUtc}"`);
+              console.log(`  Raw LastWriteTime: "${fileResult.FileInfo.LastWriteTime}"`);
+              console.log(`  Raw LastWriteTimeUtc: "${fileResult.FileInfo.LastWriteTimeUtc}"`);
+              console.log(`  Raw LastAccessTime: "${fileResult.FileInfo.LastAccessTime}"`);
+              console.log(`  Raw LastAccessTimeUtc: "${fileResult.FileInfo.LastAccessTimeUtc}"`);
+              console.log(`  Using CreationTime: "${result.creationTime}"`);
+              console.log(`  Using LastModified: "${result.lastModified}"`);
+              
+              // Validate timestamp logic
+              if (creationTime && lastModified) {
+                try {
+                  const creationDate = new Date(creationTime);
+                  const modifiedDate = new Date(lastModified);
                   
-                  // Check if this might be a backup file or archive
-                  if (result.fileName.toLowerCase().includes('.bak') || 
-                      result.fileName.toLowerCase().includes('.backup') ||
-                      result.fileName.toLowerCase().includes('.archive')) {
-                    console.info(`   Note: This appears to be a backup file, which might explain the timestamp anomaly.`);
+                  if (creationDate > modifiedDate) {
+                    console.warn(`⚠️  SUSPICIOUS TIMESTAMPS: Creation time (${creationTime}) is after last modified time (${lastModified}) for file: ${result.fullPath}`);
+                    console.warn(`   This could indicate file manipulation, data recovery, or file system inconsistencies.`);
+                    
+                    // Check if this might be a backup file or archive
+                    if (result.fileName.toLowerCase().includes('.bak') || 
+                        result.fileName.toLowerCase().includes('.backup') ||
+                        result.fileName.toLowerCase().includes('.archive')) {
+                      console.info(`   Note: This appears to be a backup file, which might explain the timestamp anomaly.`);
+                    }
+                    
+                    // Check if the file is in an archive directory
+                    if (result.fullPath.toLowerCase().includes('archive') ||
+                        result.fullPath.toLowerCase().includes('backup')) {
+                      console.info(`   Note: File is in an archive/backup directory, which might explain the timestamp anomaly.`);
+                    }
                   }
                   
-                  // Check if the file is in an archive directory
-                  if (result.fullPath.toLowerCase().includes('archive') ||
-                      result.fullPath.toLowerCase().includes('backup')) {
-                    console.info(`   Note: File is in an archive/backup directory, which might explain the timestamp anomaly.`);
+                  // Check for other suspicious patterns
+                  const timeDiff = Math.abs(creationDate.getTime() - modifiedDate.getTime());
+                  const timeDiffMinutes = timeDiff / (1000 * 60);
+                  
+                  if (timeDiffMinutes < 5) {
+                    console.info(`   Note: Creation and modification times are very close (${timeDiffMinutes.toFixed(1)} minutes apart).`);
                   }
+                  
+                } catch (dateError) {
+                  console.error(`Error parsing dates for ${result.fullPath}:`, dateError);
                 }
-                
-                // Check for other suspicious patterns
-                const timeDiff = Math.abs(creationDate.getTime() - modifiedDate.getTime());
-                const timeDiffMinutes = timeDiff / (1000 * 60);
-                
-                if (timeDiffMinutes < 5) {
-                  console.info(`   Note: Creation and modification times are very close (${timeDiffMinutes.toFixed(1)} minutes apart).`);
-                }
-                
-              } catch (dateError) {
-                console.error(`Error parsing dates for ${result.fullPath}:`, dateError);
               }
             }
+            
+            results.push(result);
           }
-          
-          results.push(result);
         }
       }
     }
+    
+    // Case 2: If eventProperties is empty, try to parse the message field as a TXT format line
+    if (Object.keys(eventProps).length === 0 && entry.message.includes('[File]')) {
+      try {
+        // Parse the message field using the same logic as parseTextFileLine
+        const result = parseTextFileLine(entry.message);
+        if (result) {
+          results.push(result);
+        }
+      } catch (error) {
+        console.error('Error parsing message field as TXT format:', error);
+      }
+    }
+    
   } catch (error) {
     console.error('Error parsing JSON file entry:', error);
   }
@@ -680,7 +697,14 @@ export function extractUserInfo(results: FileResult[]): {
       const parts = result.userContext.split('\\');
       if (parts.length >= 2) {
         const machine = parts[0];
-        const user = parts[1];
+        let user = parts[1];
+        
+        // Handle case where user part contains additional @machine suffix
+        // e.g., "cybercx@cybprdocaw001" -> extract just "cybercx"
+        if (user.includes('@')) {
+          user = user.split('@')[0];
+        }
+        
         const key = `${machine}\\${user}`;
         
         if (!userMap.has(key)) {
