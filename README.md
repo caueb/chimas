@@ -49,6 +49,33 @@ npm run dev
 
 4. **Open your browser** and navigate to [http://localhost:3000](http://localhost:3000)
 
+## Snaffler Output
+Chimas currently supports Snaffler output in JSON & TXT/LOG format (but it works best with JSON). An example of how to generate Snaffler JSON output is shown below:
+```powershell
+Snaffler.exe -s -t JSON -o snaffler.json
+```
+
+Occasionally Snaffler may crash or terminate unexpectedly, leaving the JSON output in an invalid format. Instead of a single JSON object with an `"entries"` array, the file may contain one JSON object per line without commas or closing brackets.  
+Example of broken output:
+```json
+{ "time": "2025-09-02 18:26:43.7248", "msg": "foo" }
+{ "time": "2025-09-02 18:27:43.7248", "msg": "bar" }
+```
+Expected format:
+```json
+{ "entries": [
+  { "time": "2025-09-02 18:26:43.7248", "msg": "foo" },
+  { "time": "2025-09-02 18:27:43.7248", "msg": "bar" }
+]}
+```
+
+You can repair the file with a simple shell one-liner:
+```bash
+(echo '{"entries":['; sed '$!s/$/,/' snaffler.json | tr -d '\r'; echo ']}' ) > fixed.json
+```
+This wraps the objects into a valid JSON array and adds commas between entries.
+Then you can load `fixed.json` into Chimas.
+
 # Disclaimer
 
 This project was primarily generated with the assistance of AI tools and may contain code that has not been thoroughly reviewed or tested. It is not intended for use in production environments without proper validation, security review, and testing. Use at your own risk.
