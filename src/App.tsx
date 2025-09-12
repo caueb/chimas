@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import * as ExcelJS from 'exceljs';
 import { parseGPO, GPOReport } from './utils/GPOParser';
 import GPOResults from './components/GPOResults.tsx';
+import GPODetails from './components/GPODetails.tsx';
 import {
   exportFileResultsToCSV,
   exportFileResultsToXLSX,
@@ -23,7 +24,7 @@ import {
   exportGPOToXLSX,
 } from './utils/exporter';
 
-type View = 'dashboard' | 'file-results' | 'share-results' | 'GPO-results';
+type View = 'dashboard' | 'file-results' | 'share-results' | 'GPO-results' | 'GPO-details';
 
 // Credentials keywords for filtering - moved outside component to prevent recreation
 const CREDENTIALS_KEYWORDS = [
@@ -94,6 +95,99 @@ function App() {
   const [shareResults, setShareResults] = useState<any[]>([]);
   // GPO state
   const [GPOReport, setGPOReport] = useState<GPOReport | null>(null);
+  
+  // GPO Details state (for persistence across tab navigation)
+  const [gpoSearch, setGpoSearch] = useState('');
+  const [gpoLinkedFilter, setGpoLinkedFilter] = useState<string>('all');
+  const [gpoSortField, setGpoSortField] = useState<'gpo' | 'settingsCount' | 'linked'>('gpo');
+  const [gpoSortDirection, setGpoSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [gpoCurrentPage, setGpoCurrentPage] = useState(1);
+  const [gpoPageSize, setGpoPageSize] = useState(50);
+  const [selectedGPO, setSelectedGPO] = useState<any>(null);
+  const [selectedGPOIndex, setSelectedGPOIndex] = useState<number>(-1);
+  const [showGPORightPanel, setShowGPORightPanel] = useState(false);
+  const [isGPOLeftPanelMinimized, setIsGPOLeftPanelMinimized] = useState(false);
+  
+  // GPO Settings state (for persistence across tab navigation)
+  const [gpoSettingsSearch, setGpoSettingsSearch] = useState('');
+  const [gpoSettingsScopeFilter, setGpoSettingsScopeFilter] = useState<string>('all');
+  const [gpoSettingsCategoryFilter, setGpoSettingsCategoryFilter] = useState<string>('all');
+  const [gpoSettingsCurrentPage, setGpoSettingsCurrentPage] = useState(1);
+  const [gpoSettingsPageSize, setGpoSettingsPageSize] = useState(100);
+  const [gpoSettingsSortField, setGpoSettingsSortField] = useState<'gpo' | 'scope' | 'category' | 'entries' | 'findings' | 'severity'>('severity');
+  const [gpoSettingsSortDirection, setGpoSettingsSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [gpoSettingsSelectedIndex, setGpoSettingsSelectedIndex] = useState<number | null>(null);
+  const [gpoSettingsShowExportDropdown, setGpoSettingsShowExportDropdown] = useState(false);
+  const [isGpoSettingsLeftPanelMinimized, setIsGpoSettingsLeftPanelMinimized] = useState(false);
+  
+  // GPO panel width state (for persistence across tab navigation)
+  const [gpoLeftPanelWidthPx, setGpoLeftPanelWidthPx] = useState<number>(300);
+  const [gpoRightPanelWidthPx, setGpoRightPanelWidthPx] = useState<number>(400);
+  const [gpoDetailsLeftPanelWidthPx, setGpoDetailsLeftPanelWidthPx] = useState<number>(300);
+  const [gpoDetailsRightPanelWidthPx, setGpoDetailsRightPanelWidthPx] = useState<number>(400);
+  
+  // GPO scroll position state (for persistence across tab navigation)
+  const [gpoListScrollTop, setGpoListScrollTop] = useState<number>(0);
+  const [gpoSettingsScrollTop, setGpoSettingsScrollTop] = useState<number>(0);
+
+  // Initialize GPO panel widths and scroll positions from localStorage
+  useEffect(() => {
+    const ww = window.innerWidth;
+    const storedGpoLeftPct = getStoredPct('layout:gpo:leftPct', 300 / ww);
+    const storedGpoRightPct = getStoredPct('layout:gpo:rightPct', 400 / ww);
+    const storedGpoDetailsLeftPct = getStoredPct('layout:gpo-details:leftPct', 300 / ww);
+    const storedGpoDetailsRightPct = getStoredPct('layout:gpo-details:rightPct', 400 / ww);
+    
+    setGpoLeftPanelWidthPx(Math.round(storedGpoLeftPct * ww));
+    setGpoRightPanelWidthPx(Math.round(storedGpoRightPct * ww));
+    setGpoDetailsLeftPanelWidthPx(Math.round(storedGpoDetailsLeftPct * ww));
+    setGpoDetailsRightPanelWidthPx(Math.round(storedGpoDetailsRightPct * ww));
+    
+    // Initialize scroll positions from localStorage
+    const storedGpoListScroll = getStoredPct('scroll:gpo-list', 0);
+    const storedGpoSettingsScroll = getStoredPct('scroll:gpo-settings', 0);
+    setGpoListScrollTop(storedGpoListScroll);
+    setGpoSettingsScrollTop(storedGpoSettingsScroll);
+  }, []);
+
+  // Save GPO panel widths to localStorage
+  useEffect(() => {
+    const ww = window.innerWidth;
+    if (ww > 0) {
+      setStoredPct('layout:gpo:leftPct', gpoLeftPanelWidthPx / ww);
+    }
+  }, [gpoLeftPanelWidthPx]);
+
+  useEffect(() => {
+    const ww = window.innerWidth;
+    if (ww > 0) {
+      setStoredPct('layout:gpo:rightPct', gpoRightPanelWidthPx / ww);
+    }
+  }, [gpoRightPanelWidthPx]);
+
+  useEffect(() => {
+    const ww = window.innerWidth;
+    if (ww > 0) {
+      setStoredPct('layout:gpo-details:leftPct', gpoDetailsLeftPanelWidthPx / ww);
+    }
+  }, [gpoDetailsLeftPanelWidthPx]);
+
+  useEffect(() => {
+    const ww = window.innerWidth;
+    if (ww > 0) {
+      setStoredPct('layout:gpo-details:rightPct', gpoDetailsRightPanelWidthPx / ww);
+    }
+  }, [gpoDetailsRightPanelWidthPx]);
+
+  // Save GPO scroll positions to localStorage
+  useEffect(() => {
+    setStoredPct('scroll:gpo-list', gpoListScrollTop);
+  }, [gpoListScrollTop]);
+
+  useEffect(() => {
+    setStoredPct('scroll:gpo-settings', gpoSettingsScrollTop);
+  }, [gpoSettingsScrollTop]);
+  
   
   // Duplicate statistics state
   const [duplicateStats, setDuplicateStats] = useState<any>(null);
@@ -273,7 +367,7 @@ function App() {
           });
           
           setDuplicateStats(null);
-          setCurrentView('GPO-results');
+          setCurrentView('dashboard');
           return;
         }
       }
@@ -332,6 +426,37 @@ function App() {
     setGPOReport(null);
     setDuplicateStats(null);
     setErrorInfo(null);
+    
+    // Clear GPO state
+    setGpoSearch('');
+    setGpoLinkedFilter('all');
+    setGpoSortField('gpo');
+    setGpoSortDirection('asc');
+    setGpoCurrentPage(1);
+    setGpoPageSize(50);
+    setSelectedGPO(null);
+    setSelectedGPOIndex(-1);
+    setShowGPORightPanel(false);
+    setIsGPOLeftPanelMinimized(false);
+    
+    // Clear GPO Settings state
+    setGpoSettingsSearch('');
+    setGpoSettingsScopeFilter('all');
+    setGpoSettingsCategoryFilter('all');
+    setGpoSettingsCurrentPage(1);
+    setGpoSettingsPageSize(100);
+    setGpoSettingsSortField('severity');
+    setGpoSettingsSortDirection('desc');
+    setGpoSettingsSelectedIndex(null);
+    setGpoSettingsShowExportDropdown(false);
+    setIsGpoSettingsLeftPanelMinimized(false);
+    
+    // Clear localStorage
+    try {
+      localStorage.clear();
+    } catch (error) {
+      console.warn('Failed to clear localStorage:', error);
+    }
     
     // Reset all filters and search
     setRatingFilter(['all']);
@@ -1276,7 +1401,72 @@ function App() {
         return (
           <>
             {GPOReport && (
-              <GPOResults report={GPOReport} />
+              <GPOResults 
+                report={GPOReport}
+                search={gpoSettingsSearch}
+                setSearch={setGpoSettingsSearch}
+                scopeFilter={gpoSettingsScopeFilter}
+                setScopeFilter={setGpoSettingsScopeFilter}
+                categoryFilter={gpoSettingsCategoryFilter}
+                setCategoryFilter={setGpoSettingsCategoryFilter}
+                currentPage={gpoSettingsCurrentPage}
+                setCurrentPage={setGpoSettingsCurrentPage}
+                pageSize={gpoSettingsPageSize}
+                setPageSize={setGpoSettingsPageSize}
+                sortField={gpoSettingsSortField}
+                setSortField={setGpoSettingsSortField}
+                sortDirection={gpoSettingsSortDirection}
+                setSortDirection={setGpoSettingsSortDirection}
+                selectedIndex={gpoSettingsSelectedIndex}
+                setSelectedIndex={setGpoSettingsSelectedIndex}
+                showExportDropdown={gpoSettingsShowExportDropdown}
+                setShowExportDropdown={setGpoSettingsShowExportDropdown}
+                isLeftPanelMinimized={isGpoSettingsLeftPanelMinimized}
+                setIsLeftPanelMinimized={setIsGpoSettingsLeftPanelMinimized}
+                leftPanelWidthPx={gpoLeftPanelWidthPx}
+                setLeftPanelWidthPx={setGpoLeftPanelWidthPx}
+                rightPanelWidthPx={gpoRightPanelWidthPx}
+                setRightPanelWidthPx={setGpoRightPanelWidthPx}
+                scrollTop={gpoSettingsScrollTop}
+                setScrollTop={setGpoSettingsScrollTop}
+              />
+            )}
+          </>
+        );
+      
+      case 'GPO-details':
+        return (
+          <>
+            {GPOReport && (
+              <GPODetails 
+                report={GPOReport}
+                search={gpoSearch}
+                setSearch={setGpoSearch}
+                linkedFilter={gpoLinkedFilter}
+                setLinkedFilter={setGpoLinkedFilter}
+                sortField={gpoSortField}
+                setSortField={setGpoSortField}
+                sortDirection={gpoSortDirection}
+                setSortDirection={setGpoSortDirection}
+                currentPage={gpoCurrentPage}
+                setCurrentPage={setGpoCurrentPage}
+                pageSize={gpoPageSize}
+                setPageSize={setGpoPageSize}
+                selectedGPO={selectedGPO}
+                setSelectedGPO={setSelectedGPO}
+                selectedIndex={selectedGPOIndex}
+                setSelectedIndex={setSelectedGPOIndex}
+                showRightPanel={showGPORightPanel}
+                setShowRightPanel={setShowGPORightPanel}
+                isLeftPanelMinimized={isGPOLeftPanelMinimized}
+                setIsLeftPanelMinimized={setIsGPOLeftPanelMinimized}
+                leftPanelWidthPx={gpoDetailsLeftPanelWidthPx}
+                setLeftPanelWidthPx={setGpoDetailsLeftPanelWidthPx}
+                rightPanelWidthPx={gpoDetailsRightPanelWidthPx}
+                setRightPanelWidthPx={setGpoDetailsRightPanelWidthPx}
+                scrollTop={gpoListScrollTop}
+                setScrollTop={setGpoListScrollTop}
+              />
             )}
           </>
         );

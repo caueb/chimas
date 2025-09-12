@@ -4,29 +4,72 @@ import { exportGPOToCSV, exportGPOToXLSX } from '../utils/exporter';
 
 interface GPOResultsProps {
 	report: GPOReport;
+	search: string;
+	setSearch: (search: string) => void;
+	scopeFilter: string;
+	setScopeFilter: (filter: string) => void;
+	categoryFilter: string;
+	setCategoryFilter: (filter: string) => void;
+	currentPage: number;
+	setCurrentPage: (page: number) => void;
+	pageSize: number;
+	setPageSize: (size: number) => void;
+	sortField: 'gpo' | 'scope' | 'category' | 'entries' | 'findings' | 'severity';
+	setSortField: (field: 'gpo' | 'scope' | 'category' | 'entries' | 'findings' | 'severity') => void;
+	sortDirection: 'asc' | 'desc';
+	setSortDirection: (direction: 'asc' | 'desc') => void;
+	selectedIndex: number | null;
+	setSelectedIndex: (index: number | null) => void;
+	showExportDropdown: boolean;
+	setShowExportDropdown: (show: boolean) => void;
+	isLeftPanelMinimized: boolean;
+	setIsLeftPanelMinimized: (minimized: boolean) => void;
+	leftPanelWidthPx: number;
+	setLeftPanelWidthPx: (width: number) => void;
+	rightPanelWidthPx: number;
+	setRightPanelWidthPx: (width: number) => void;
+	scrollTop: number;
+	setScrollTop: (scrollTop: number) => void;
 }
 
-const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
-	const [search, setSearch] = useState('');
-	const [scopeFilter, setScopeFilter] = useState<string>('all');
-	const [categoryFilter, setCategoryFilter] = useState<string>('all');
-	const [isLeftPanelMinimized, setIsLeftPanelMinimized] = useState(false);
-	const [currentPage, setCurrentPage] = useState(1);
-	const [pageSize, setPageSize] = useState(100);
-	const [sortField, setSortField] = useState<'gpo' | 'scope' | 'category' | 'entries' | 'findings' | 'severity'>('severity');
-	const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-	const [showExportDropdown, setShowExportDropdown] = useState(false);
+const GPOResults: React.FC<GPOResultsProps> = ({ 
+	report,
+	search,
+	setSearch,
+	scopeFilter,
+	setScopeFilter,
+	categoryFilter,
+	setCategoryFilter,
+	currentPage,
+	setCurrentPage,
+	pageSize,
+	setPageSize,
+	sortField,
+	setSortField,
+	sortDirection,
+	setSortDirection,
+	selectedIndex,
+	setSelectedIndex,
+	showExportDropdown,
+	setShowExportDropdown,
+	isLeftPanelMinimized,
+	setIsLeftPanelMinimized,
+	leftPanelWidthPx,
+	setLeftPanelWidthPx,
+	rightPanelWidthPx,
+	setRightPanelWidthPx,
+	scrollTop,
+	setScrollTop
+}) => {
 
 	// Panel sizing and persistence
-	const [leftPanelWidthPx, setLeftPanelWidthPx] = useState<number>(300);
-	const [rightPanelWidthPx, setRightPanelWidthPx] = useState<number>(400);
 	const [draggingSide, setDraggingSide] = useState<'left' | 'right' | null>(null);
 	const previousLeftWidthRef = useRef<number>(300);
 	const windowWidthRef = useRef<number>(typeof window !== 'undefined' ? window.innerWidth : 1440);
 	const leftResizerRef = useRef<HTMLDivElement>(null);
 	const rightResizerRef = useRef<HTMLDivElement>(null);
 	const tableRef = useRef<HTMLTableElement>(null);
+	const tableWrapperRef = useRef<HTMLDivElement>(null);
 
 	const showRightPanel = selectedIndex !== null;
 
@@ -44,6 +87,28 @@ const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
 			document.removeEventListener('mousedown', handleClickOutside);
 		};
 	}, []);
+
+	// Restore scroll position when component mounts
+	useEffect(() => {
+		if (tableWrapperRef.current && scrollTop > 0) {
+			tableWrapperRef.current.scrollTop = scrollTop;
+		}
+	}, []);
+
+	// Save scroll position when scrolling
+	useEffect(() => {
+		const tableWrapper = tableWrapperRef.current;
+		if (!tableWrapper) return;
+
+		const handleScroll = () => {
+			setScrollTop(tableWrapper.scrollTop);
+		};
+
+		tableWrapper.addEventListener('scroll', handleScroll);
+		return () => {
+			tableWrapper.removeEventListener('scroll', handleScroll);
+		};
+	}, [setScrollTop]);
 
 
 
@@ -157,31 +222,29 @@ const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
 		const MIN_CENTER = 480;
 		if (showRightPanel) {
 			const maxLeft = Math.max(MIN_LEFT, ww - rightPanelWidthPx - MIN_CENTER);
-			setLeftPanelWidthPx(prev => Math.max(MIN_LEFT, Math.min(prev, maxLeft)));
+			setLeftPanelWidthPx(Math.max(MIN_LEFT, Math.min(leftPanelWidthPx, maxLeft)));
 			const maxRight = Math.max(MIN_RIGHT, ww - (isLeftPanelMinimized ? 50 : leftPanelWidthPx) - MIN_CENTER);
-			setRightPanelWidthPx(prev => Math.max(MIN_RIGHT, Math.min(prev, maxRight)));
+			setRightPanelWidthPx(Math.max(MIN_RIGHT, Math.min(rightPanelWidthPx, maxRight)));
 		} else {
 			const maxLeft = Math.max(MIN_LEFT, ww - MIN_CENTER);
-			setLeftPanelWidthPx(prev => Math.max(MIN_LEFT, Math.min(prev, maxLeft)));
+			setLeftPanelWidthPx(Math.max(MIN_LEFT, Math.min(leftPanelWidthPx, maxLeft)));
 		}
 	}, [showRightPanel, isLeftPanelMinimized, leftPanelWidthPx, rightPanelWidthPx]);
 
 	const handleToggleLeftPanel = () => {
-		setIsLeftPanelMinimized(prev => {
-			const next = !prev;
-			if (next) {
-				previousLeftWidthRef.current = leftPanelWidthPx;
-				setLeftPanelWidthPx(50);
-			} else {
-				const ww = window.innerWidth;
-				const MIN_LEFT = 180;
-				const MIN_CENTER = 480;
-				const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - MIN_CENTER;
-				const restored = Math.max(MIN_LEFT, Math.min(previousLeftWidthRef.current || 300, maxLeft));
-				setLeftPanelWidthPx(restored);
-			}
-			return next;
-		});
+		const next = !isLeftPanelMinimized;
+		if (next) {
+			previousLeftWidthRef.current = leftPanelWidthPx;
+			setLeftPanelWidthPx(50);
+		} else {
+			const ww = window.innerWidth;
+			const MIN_LEFT = 180;
+			const MIN_CENTER = 480;
+			const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - MIN_CENTER;
+			const restored = Math.max(MIN_LEFT, Math.min(previousLeftWidthRef.current || 300, maxLeft));
+			setLeftPanelWidthPx(restored);
+		}
+		setIsLeftPanelMinimized(next);
 	};
 
 	const { scopes, categories } = useMemo(() => {
@@ -206,30 +269,32 @@ const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
 			scope?: string;
 			category?: string;
 			entries: Record<string, string>;
-			findings: Array<{ type?: string; reason?: string }>;
+			findings: Array<{ type?: string; reason?: string; detail?: string }>;
 		}> = [];
 		let idx = 0;
 		report.gpos.forEach(gpo => {
 			const title = gpo.header.gpo || gpo.startedAtRaw || 'GPO';
-			gpo.settings.forEach(s => {
-				// Filters
-				if (scopeFilter !== 'all' && (s.scope || '').toLowerCase() !== scopeFilter.toLowerCase()) return;
-				if (categoryFilter !== 'all' && (s.category || '').toLowerCase() !== categoryFilter.toLowerCase()) return;
-				// Search
-				if (q) {
-					const entriesText = Object.entries(s.entries).map(([k, v]) => `${k} ${v}`).join(' ').toLowerCase();
-					const findingsText = (s.findings || []).map(f => `${f.type || ''} ${f.reason || ''}`).join(' ').toLowerCase();
-					const match = (
-						title.toLowerCase().includes(q) ||
-						(s.scope || '').toLowerCase().includes(q) ||
-						(s.category || '').toLowerCase().includes(q) ||
-						entriesText.includes(q) ||
-						findingsText.includes(q)
-					);
-					if (!match) return;
-				}
-				items.push({
-					index: idx++,
+		gpo.settings.forEach(s => {
+			
+			
+			// Filters
+			if (scopeFilter !== 'all' && (s.scope || '').toLowerCase() !== scopeFilter.toLowerCase()) return;
+			if (categoryFilter !== 'all' && (s.category || '').toLowerCase() !== categoryFilter.toLowerCase()) return;
+			// Search
+			if (q) {
+				const entriesText = Object.entries(s.entries).map(([k, v]) => `${k} ${v}`).join(' ').toLowerCase();
+				const findingsText = (s.findings || []).map(f => `${f.type || ''} ${f.reason || ''} ${f.detail || ''}`).join(' ').toLowerCase();
+				const match = (
+					title.toLowerCase().includes(q) ||
+					(s.scope || '').toLowerCase().includes(q) ||
+					(s.category || '').toLowerCase().includes(q) ||
+					entriesText.includes(q) ||
+					findingsText.includes(q)
+				);
+				if (!match) return;
+			}
+			items.push({
+				index: idx++,
 					gpoTitle: title,
 					pathInSysvol: gpo.header.pathInSysvol,
 					scope: s.scope,
@@ -237,6 +302,7 @@ const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
 					entries: s.entries,
 					findings: s.findings || []
 				});
+				
 			});
 		});
 		return items;
@@ -466,7 +532,7 @@ const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
 						</div>
 					</div>
 
-					<div className="table-wrapper">
+					<div className="table-wrapper" ref={tableWrapperRef}>
 						<table ref={tableRef}>
 							<thead>
 								<tr>
@@ -522,8 +588,8 @@ const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
 							</div>
 							<div className="pagination-buttons">
 								<button className={`pagination-button ${currentPage === 1 ? 'disabled' : ''}`} disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>{'<<'}</button>
-								<button className={`pagination-button ${currentPage === 1 ? 'disabled' : ''}`} disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>{'<'}</button>
-								<button className={`pagination-button ${currentPage === totalPages ? 'disabled' : ''}`} disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>{'>'}</button>
+								<button className={`pagination-button ${currentPage === 1 ? 'disabled' : ''}`} disabled={currentPage === 1} onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}>{'<'}</button>
+								<button className={`pagination-button ${currentPage === totalPages ? 'disabled' : ''}`} disabled={currentPage === totalPages} onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}>{'>'}</button>
 								<button className={`pagination-button ${currentPage === totalPages ? 'disabled' : ''}`} disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)}>{'>>'}</button>
 							</div>
 						</div>
@@ -572,7 +638,7 @@ const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
 										) : (
 											<ul>
 												{Object.entries(item.entries).map(([k, v]) => (
-													<li key={k}><strong>{k}:</strong> {v}</li>
+													<li key={k}><strong>{k}:</strong> <span dangerouslySetInnerHTML={{__html: v.replace(/\n/g, '<br>')}} /></li>
 												))}
 											</ul>
 										)}
@@ -586,7 +652,12 @@ const GPOResults: React.FC<GPOResultsProps> = ({ report }) => {
 										) : (
 											<ul>
 												{item.findings.map((f, i) => (
-													<li key={i}>{f.type ? (<span className={`rating ${String(f.type).toLowerCase()}`}>{f.type}</span>) : null} {f.reason || ''}</li>
+													<li key={i}>
+														{f.type ? (<span className={`rating ${String(f.type).toLowerCase()}`}>{f.type}</span>) : null} {f.reason || ''}
+														{f.detail && (
+															<div className="finding-detail">{f.detail}</div>
+														)}
+													</li>
 												))}
 											</ul>
 										)}

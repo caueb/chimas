@@ -1,6 +1,6 @@
 import React from 'react';
 
-type View = 'dashboard' | 'file-results' | 'share-results' | 'GPO-results';
+type View = 'dashboard' | 'file-results' | 'share-results' | 'GPO-results' | 'GPO-details';
 
 interface NavigationProps {
   currentView: View;
@@ -39,13 +39,22 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChang
           </>
         )}
         {hasGPOData && !hasShareData && (
-          <button
-            className={`nav-tab ${currentView === 'GPO-results' ? 'active' : ''}`}
-            onClick={() => onViewChange('GPO-results')}
-          >
-            <i className="fas fa-shield-alt"></i>
-            <span>GPO Results</span>
-          </button>
+          <>
+            <button
+              className={`nav-tab ${currentView === 'GPO-details' ? 'active' : ''}`}
+              onClick={() => onViewChange('GPO-details')}
+            >
+              <i className="fas fa-list-alt"></i>
+              <span>GPO List</span>
+            </button>
+            <button
+              className={`nav-tab ${currentView === 'GPO-results' ? 'active' : ''}`}
+              onClick={() => onViewChange('GPO-results')}
+            >
+              <i className="fas fa-shield-alt"></i>
+              <span>GPO Settings</span>
+            </button>
+          </>
         )}
       </div>
     </nav>

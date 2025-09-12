@@ -66,81 +66,23 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
       .replace(/(#.*$)/gm, '<span class="log-comment">$1</span>');
   };
 
-  const getErrorType = (message: string): { type: string; description: string; expectedExample: string; suggestions: string[] } => {
+  const getErrorType = (message: string): { type: string; description: string; expectedExample: string } => {
     if (message.includes('JSON') || message.includes('parse') || message.includes('entries is undefined')) {
       return {
         type: 'JSON Parsing Error',
         description: 'The JSON file appears to be malformed or contains invalid syntax.',
-        expectedExample: `{
-  "entries": [
-    {
-      "time": "2024-01-15T10:30:00.000Z",
-      "level": "Warn", 
-      "message": "[File] <Red>C:\\\\Users\\\\admin\\\\password.txt</Red>",
-      "eventProperties": {
-        "Red": {
-          "FileResult": {
-            "FileInfo": {
-              "FullName": "C:\\\\Users\\\\admin\\\\password.txt",
-              "Name": "password.txt",
-              "Length": 1024
-            },
-            "TextResult": {
-              "MatchContext": "password=admin123",
-              "MatchedStrings": ["password"]
-            },
-            "MatchedRule": {
-              "RuleName": "KeepConfigRegexRed"
-            }
-          }
-        }
-      }
-    }
-  ]
-}`,
-        suggestions: [
-          'Check if the file is a valid JSON file exported from Snaffler',
-          'Ensure there are no missing brackets, quotes, or commas',
-          'Verify the file wasn\'t corrupted during transfer',
-          'Use a JSON validator tool to check for syntax errors'
-        ]
+        expectedExample: `{ "entries": [
+  { "time": "2025-09-02 18:26:43.7248", "level": "foo", "message": "..." },
+  { "time": "2025-09-02 18:27:43.7248", "level": "bar", "message": "..." }
+]}`
       };
     } else if (message.includes('valid Snaffler output') || message.includes('entries is undefined')) {
       const getFormatExample = () => {
         if (fileType === 'json') {
-          return `{
-  "entries": [
-    {
-      "time": "2024-01-15T10:30:00.000Z",
-      "level": "Warn", 
-      "message": "[File] <Red>C:\\\\Users\\\\admin\\\\password.txt</Red>",
-      "eventProperties": {
-        "Red": {
-          "FileResult": {
-            "FileInfo": {
-              "FullName": "C:\\\\Users\\\\admin\\\\password.txt",
-              "Name": "password.txt",
-              "Length": 1024
-            },
-            "TextResult": {
-              "MatchContext": "password=admin123",
-              "MatchedStrings": ["password"]
-            },
-            "MatchedRule": {
-              "RuleName": "KeepConfigRegexRed"
-            }
-          }
-        }
-      }
-    },
-    {
-      "time": "2024-01-15T10:31:00.000Z",
-      "level": "Warn",
-      "message": "[File] <Yellow>C:\\\\Documents\\\\config.xml</Yellow>",
-      "eventProperties": { ... }
-    }
-  ]
-}`;
+          return `{ "entries": [
+  { "time": "2025-09-02 18:26:43.7248", "level": "foo", "message": "..." },
+  { "time": "2025-09-02 18:27:43.7248", "level": "bar", "message": "..." }
+]}`;
         } else {
           return `2024-01-15 10:30:00 [1] (Snaffler) [File] <Red>C:\\\\Users\\\\admin\\\\password.txt</Red>
 2024-01-15 10:30:01 [1] (Snaffler) [File] <Yellow>C:\\\\Documents\\\\config.xml</Yellow>
@@ -153,29 +95,10 @@ Jan 15 10:31:00 [File] <Black>C:\\\\documents\\\\normal.pdf</Black>`;
         }
       };
 
-      const getFormatSuggestions = () => {
-        if (fileType === 'json') {
-          return [
-            'Ensure the file is a valid JSON export from Snaffler',
-            'Check if the file contains the expected "entries" array structure',
-            'Verify each entry has "time", "level", "message" and "eventProperties" fields',
-            'Make sure you\'re using a recent version of Snaffler that outputs JSON format'
-          ];
-        } else {
-          return [
-            'Ensure the file is an actual text log output from Snaffler tool',
-            'Verify the file contains Snaffler log entries with [File] or [Share] markers',
-            'Check that entries have color tags like <Red>, <Yellow>, <Green>, <Black>',
-            'Make sure the log wasn\'t truncated or corrupted during transfer'
-          ];
-        }
-      };
-
       return {
         type: 'Invalid Snaffler Format',
         description: 'The file was parsed successfully but doesn\'t contain valid Snaffler output data.',
-        expectedExample: getFormatExample(),
-        suggestions: getFormatSuggestions()
+        expectedExample: getFormatExample()
       };
     } else if (message.includes('empty')) {
       return {
@@ -184,25 +107,13 @@ Jan 15 10:31:00 [File] <Black>C:\\\\documents\\\\normal.pdf</Black>`;
         expectedExample: `2024-01-15 10:30:00 [Info] Snaffler started
 2024-01-15 10:30:01 [Warn] [File] <Red>C:\\\\Users\\\\admin\\\\secrets.txt</Red>
 2024-01-15 10:30:02 [Warn] [Share] <Yellow>\\\\server\\\\confidential</Yellow>
-2024-01-15 10:30:03 [Info] Snaffler finished`,
-        suggestions: [
-          'Check if the Snaffler scan actually found any files',
-          'Verify the file was completely downloaded/copied',
-          'Try running Snaffler again with different parameters',
-          'Ensure the target directories had accessible files during the scan'
-        ]
+2024-01-15 10:30:03 [Info] Snaffler finished`
       };
     } else {
       return {
         type: 'Unknown Error',
         description: 'An unexpected error occurred while processing the file.',
-        expectedExample: `Valid Snaffler JSON or text log file with scan results.`,
-        suggestions: [
-          'Try refreshing the page and uploading again',
-          'Check the browser console for more details',
-          'Verify the file is not corrupted',
-          'Contact support if the issue persists'
-        ]
+        expectedExample: `Valid Snaffler JSON or text log file with scan results.`
       };
     }
   };
@@ -285,51 +196,45 @@ Jan 15 10:31:00 [File] <Black>C:\\\\documents\\\\normal.pdf</Black>`;
     <div className="error-display-container">
       <div className="error-content">
         <div className="error-header">
-          <i className="fas fa-exclamation-triangle error-icon"></i>
-          <h2>File Parsing Error</h2>
+          <h2>Error parsing the file</h2>
         </div>
         
-
-
         <div className="error-details">
           <h4>Technical Details</h4>
           <div className="error-message-box">
             <code>{errorMessage}</code>
           </div>
-        </div>
 
-        {fileSnippet && (
-          <div className="file-snippet">
-            <h4>File Content Preview</h4>
-            <p className="snippet-description">
-              {errorPosition !== undefined 
-                ? "The highlighted line shows approximately where the error was detected:"
-                : "Here's a preview of the file content where the error might be located:"
-              }
-            </p>
-            <div className="snippet-container">
-              {renderFileSnippet()}
-            </div>
-          </div>
-        )}
+          {fileSnippet && (
+            <>
+              <h4>File Content Preview</h4>
+              <p className="snippet-description">
+                {errorPosition !== undefined 
+                  ? "The highlighted line shows approximately where the error was detected:"
+                  : "Here's a preview of the file content where the error might be located:"
+                }
+              </p>
+              <div className="snippet-container">
+                {renderFileSnippet()}
+              </div>
+            </>
+          )}
 
-        <div className="error-expected">
           <h4>Expected Format</h4>
           {renderExpectedFormat()}
+          
+          <div className="bash-command-section">
+            If your <b>snaffler.json</b> is missing commas between entries, try this bash command:
+            <div className="bash-command-box">
+              <code>{`(echo '{"entries":['; sed '$!s/$/,/' snaffler.json | tr -d '\r'; echo ']}' ) > fixed.json`}</code>
+            </div>
+            This wraps the objects into a valid JSON array and adds commas between entries. Then you can load <b>fixed.json</b> into Chimas.
+          </div>
         </div>
 
-        <div className="error-suggestions">
-          <h4>Suggestions to Fix This Issue</h4>
-          <ul>
-            {errorInfo.suggestions.map((suggestion, index) => (
-              <li key={index}>{suggestion}</li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="error-actions">
-          <button onClick={onClearError} className="action-button primary-button">
-            <i className="fas fa-arrow-left"></i> Go Back and Try Another File
+        <div className="error-actions" style={{justifyContent: 'flex-start'}}>
+          <button onClick={onClearError} className="action-button primary-button large-button">
+            <i className="fas fa-arrow-left"></i> Go Back
           </button>
         </div>
       </div>

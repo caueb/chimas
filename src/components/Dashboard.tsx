@@ -228,7 +228,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareRe
 
         {/* Top Systems and File Types - Side by Side */}
         <div className="insights-section">
-          <h2>Top Systems</h2>
+          <h2>Most Files Count</h2>
           <div className="insights-card compact">
             {topSystems.length > 0 ? (
               <div className="insights-list compact">

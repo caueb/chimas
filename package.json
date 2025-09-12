@@ -1,7 +1,7 @@
 {
   "name": "chimas",
   "version": "1.0.0",
-  "description": "Sipping secrets from SMB shares and GPOs, one credential at a time - A web application for analyzing Snaffler output",
+  "description": "Chimas - A web application for analyzing Snaffler & Group3r output",
   "private": true,
   "type": "module",
   "dependencies": {
@@ -15,7 +15,7 @@
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
-    "typescript": "^5.3.0",
+    "typescript": "^5.9.2",
     "vite": "^5.0.0"
   },
   "scripts": {
@@ -25,3 +25,4 @@
     "start": "vite"
   }
 }
+

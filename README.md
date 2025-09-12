@@ -1,7 +1,8 @@
 # Chimas 
 
-A web application to parse and analyse Snaffler output providing filtering capabilities in a nice interactive interface.  
-Go checkout [Snaffler](https://github.com/SnaffCon/Snaffler)!
+A web application to parse and analyse Snaffler & Group3r (thanks [perrc](https://github.com/perrc)) output providing filtering capabilities in a nice interactive interface.  
+Go checkout [Snaffler](https://github.com/SnaffCon/Snaffler)! *Chimas works best with Snaffler JSON output.*   
+Go checkout [Group3r](https://github.com/Group3r/Group3r)!
 
 ## Features
 
@@ -49,6 +50,18 @@ npm run dev
 
 4. **Open your browser** and navigate to [http://localhost:3000](http://localhost:3000)
 
+## Last updates
+### August 2025
+- Drag-and-drop file upload
+- Panel resizing, and unified export to CSV/XLSX are also added for all data views (these may need work for best presenting the GPO data).
+- Added keyboard navigation to GPO table.
+- Fixed fontawesome dependency.
+- Include matchcontext in the file exports.
+- Added GPO List view to Group3r analysis and more details in the selected setting.
+
+### July 2025
+- Export to XLSX
+
 ## Snaffler Output
 Chimas currently supports Snaffler output in JSON & TXT/LOG format (but it works best with JSON). An example of how to generate Snaffler JSON output is shown below:
 ```powershell
@@ -58,24 +71,28 @@ Snaffler.exe -s -t JSON -o snaffler.json
 Occasionally Snaffler may crash or terminate unexpectedly, leaving the JSON output in an invalid format. Instead of a single JSON object with an `"entries"` array, the file may contain one JSON object per line without commas or closing brackets.  
 Example of broken output:
 ```json
-{ "time": "2025-09-02 18:26:43.7248", "msg": "foo" }
-{ "time": "2025-09-02 18:27:43.7248", "msg": "bar" }
+{ "time": "2025-09-02 18:26:43.7248", "level": "foo", "message": "..." }
+{ "time": "2025-09-02 18:27:43.7248", "level": "bar", "message": "..." }
 ```
 Expected format:
 ```json
 { "entries": [
-  { "time": "2025-09-02 18:26:43.7248", "msg": "foo" },
-  { "time": "2025-09-02 18:27:43.7248", "msg": "bar" }
+  { "time": "2025-09-02 18:26:43.7248", "level": "foo", "message": "..." },
+  { "time": "2025-09-02 18:27:43.7248", "level": "foo", "message": "..." }
 ]}
 ```
 
-You can repair the file with a simple shell one-liner:
+You can repair the file with a simple bash one-liner:
 ```bash
 (echo '{"entries":['; sed '$!s/$/,/' snaffler.json | tr -d '\r'; echo ']}' ) > fixed.json
 ```
-This wraps the objects into a valid JSON array and adds commas between entries.
+This wraps the objects into a valid JSON array and adds commas between entries.  
 Then you can load `fixed.json` into Chimas.
+
 
 # Disclaimer
 
 This project was primarily generated with the assistance of AI tools and may contain code that has not been thoroughly reviewed or tested. It is not intended for use in production environments without proper validation, security review, and testing. Use at your own risk.
+
+# Credits
+- Thanks to [perrc](https://github.com/perrc), chimas can now parse and display Group3r output.

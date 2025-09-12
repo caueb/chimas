@@ -936,3 +936,4 @@ function parseTextShareLine(line: string): ShareResult | null {
 
   return null;
 }
+

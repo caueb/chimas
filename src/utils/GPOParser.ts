@@ -6,13 +6,16 @@ export interface InfoLine {
   }
   
   export interface GpoHeader {
-    gpo?: string; // full title line
+    gpo?: string; // clean GPO name without GUID and status
+    gpoId?: string; // GPO GUID
+    gpoStatus?: string; // Current or Morphed
     dateCreated?: string;
     dateModified?: string;
     pathInSysvol?: string;
     computerPolicy?: string;
     userPolicy?: string;
-    [k: string]: string | undefined;
+    links?: string[]; // array of all Link entries
+    [k: string]: string | string[] | undefined;
   }
   
   export interface Finding {
@@ -33,6 +36,7 @@ export interface InfoLine {
     startedAtRaw?: string; // the [GPO] line
     header: GpoHeader;
     settings: SettingBlock[];
+    findings: Finding[];
   }
   
   export interface GPOReport {
@@ -51,11 +55,18 @@ export interface InfoLine {
     let finishedAt: string | undefined;
     let duration: string | undefined;
   
-    // Find indices of [GPO] markers
+    // Find indices of valid GPO sections (look for the actual table structure)
     const gpoIdx: number[] = [];
-    lines.forEach((l, i) => {
-      if (/\[GPO\]/.test(l)) gpoIdx.push(i);
-    });
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      // Look for [GPO] marker followed by a table structure
+      if (/\[GPO\]/.test(line)) {
+        // Check if the next line is the GPO table header (immediate)
+        if (i + 1 < lines.length && /^\s*\|.*GPO.*\|/.test(lines[i + 1])) {
+          gpoIdx.push(i);
+        }
+      }
+    }
   
     // Pre-pass: collect [Info] and [Finish]
     for (const l of lines) {
@@ -121,7 +132,17 @@ export interface InfoLine {
           continue;
         }
         lastKey = key;
-        out[key] = val;
+        if (out[key]) {
+          // Multiple entries with same key - append with newline
+          if (key === 'Member') {
+            // For Member entries, always use newline to separate different members
+            out[key] = out[key] + '\n' + val;
+          } else {
+            out[key] = joinValue(out[key], val);
+          }
+        } else {
+          out[key] = val;
+        }
       }
       return out;
     }
@@ -168,39 +189,50 @@ export interface InfoLine {
         }
       }
   
-      // Remaining rows are key/value pairs — but there may be nested Finding blocks that appear as their own table after another fence
-      const entries = coalesceKVRows(rows);
+        // Remaining rows are key/value pairs — but there may be nested Finding blocks that appear as their own table after another fence
+        const entries = coalesceKVRows(rows);
   
-      // Look for immediate nested Finding sub-block(s)
+      // Look for immediate nested sub-blocks (Findings and other nested tables)
       const findings: Finding[] = [];
       while (i < lines.length && isBlockFence(lines[i])) {
-        // peek ahead: if next table header starts with "Finding", parse it; otherwise leave for outer loop
         const j = i + 1;
-        const localTable: string[] = [];
-        let k = j;
-        while (k < lines.length && isTableRow(lines[k])) {
-          localTable.push(lines[k]);
-          k++;
-        }
-        const localRows = parseTableRows(localTable);
-        if (localRows.length && /Finding/i.test(localRows[0][0])) {
-          // Capture severity from the header row, e.g. ["Finding", "Green"]
-          const headerRow = localRows[0];
-          const headerType = headerRow.length > 1 ? headerRow[1]?.trim() : undefined;
-          // parse finding rows (after header)
-          localRows.shift(); // drop header row
-          const kv = coalesceKVRows(localRows);
-          const f: Finding = { ...kv };
-          f.type = headerType || kv["Finding"] || kv["Type"];
-          // Derive reason
-          f.reason = kv["Reason"] || f.reason;
-          findings.push(f);
-          // advance
-          rawLines.push(lines[i]);
-          for (let p = j; p < k; p++) rawLines.push(lines[p]);
-          i = k; // next after the finding's table
+        if (j < lines.length && lines[j].startsWith('        |')) {
+          // Found a nested block - collect all indented lines until next fence or end
+          const localTable: string[] = [];
+          let k = j;
+          while (k < lines.length && lines[k].startsWith('        ')) {
+            localTable.push(lines[k]);
+            k++;
+          }
+          const localRows = parseTableRows(localTable);
+          if (localRows.length) {
+            const headerRow = localRows[0];
+            const headerType = headerRow.length > 1 ? headerRow[1]?.trim() : undefined;
+            
+            if (/Finding/i.test(headerRow[0])) {
+              // This is a Finding block
+              localRows.shift(); // drop header row
+              const kv = coalesceKVRows(localRows);
+              const f: Finding = { ...kv };
+              f.type = headerType || kv["Finding"] || kv["Type"];
+              f.reason = kv["Reason"] || f.reason;
+              f.detail = kv["Detail"] || f.detail;
+              findings.push(f);
+            } else {
+              // This is a regular nested table - merge into main entries
+              const kv = coalesceKVRows(localRows);
+              Object.assign(entries, kv);
+            }
+            
+            // advance
+            rawLines.push(lines[i]);
+            for (let p = j; p < k; p++) rawLines.push(lines[p]);
+            i = k; // next after the nested table
+          } else {
+            break; // not a valid table; let outer loop handle
+          }
         } else {
-          break; // not a Finding; let outer loop handle
+          break; // not a nested block; let outer loop handle
         }
       }
   
@@ -222,6 +254,7 @@ export interface InfoLine {
       const end = gi + 1 < gpoIdx.length ? gpoIdx[gi + 1] : lines.length;
       const section = lines.slice(start, end);
       const gpoStartRaw = section[0];
+      
   
       // The first table after the [GPO] line is the header table
       let i = start + 1;
@@ -232,34 +265,69 @@ export interface InfoLine {
       }
       const headerRows = parseTableRows(headerTable);
       const header: GpoHeader = {};
+      const links: string[] = [];
+      
       // Convert rows into header fields
       for (const r of headerRows) {
         if (r.length < 2) continue;
         const key = r[0].toLowerCase();
         const val = r[1];
-        if (key.startsWith("gpo")) header.gpo = val;
-        else if (key.startsWith("date created")) header.dateCreated = val;
-        else if (key.startsWith("date modified")) header.dateModified = val;
-        else if (key.startsWith("path in sysvol")) header.pathInSysvol = val;
-        else if (key.startsWith("computer policy")) header.computerPolicy = val;
-        else if (key.startsWith("user policy")) header.userPolicy = val;
-        else header[r[0]] = val;
-      }
-  
-      // After the header, parse zero or more setting blocks delimited by "\\___" fences.
-      const settings: SettingBlock[] = [];
-      while (i < end) {
-        const l = lines[i];
-        if (isBlockFence(l)) {
-          const [block, nextI] = parseSettingBlock(i);
-          settings.push(block);
-          i = nextI;
-        } else {
-          i++;
+        if (key.startsWith("gpo")) {
+          // Parse GPO name, ID, and status
+          const trimmedVal = val.trim();
+          const gpoMatch = trimmedVal.match(/^(.+?)\s+(\{[A-F0-9-]+\})\s+(Current|Morphed)$/);
+          if (gpoMatch) {
+            header.gpo = gpoMatch[1].trim(); // Clean name
+            header.gpoId = gpoMatch[2]; // GUID
+            header.gpoStatus = gpoMatch[3]; // Current or Morphed
+          } else {
+            // Fallback if pattern doesn't match
+            header.gpo = trimmedVal;
+          }
         }
+        else if (key.startsWith("date created")) header.dateCreated = val.trim();
+        else if (key.startsWith("date modified")) header.dateModified = val.trim();
+        else if (key.startsWith("path in sysvol")) header.pathInSysvol = val.trim();
+        else if (key.startsWith("computer policy")) header.computerPolicy = val.trim();
+        else if (key.startsWith("user policy")) header.userPolicy = val.trim();
+        else if (key.startsWith("link")) {
+          links.push(val.trim());
+        }
+        else header[r[0]] = val.trim();
       }
+      
+      // Store all links in the header
+      if (links.length > 0) {
+        header.links = links;
+      }
+      
   
-      gpos.push({ startedAtRaw: gpoStartRaw, header, settings });
+    // After the header, parse zero or more setting blocks delimited by "\\___" fences.
+    const settings: SettingBlock[] = [];
+    while (i < end) {
+      const l = lines[i];
+      
+      // Check if this line starts a setting block (either with fence or with "Setting -" pattern)
+      if (isBlockFence(l) || (isTableRow(l) && /Setting\s*-\s*/i.test(l))) {
+        const [block, nextI] = parseSettingBlock(i);
+        
+        // Add the original block (no splitting)
+        settings.push(block);
+        
+        i = nextI;
+        
+      } else {
+        i++;
+      }
+    }
+  
+    // Collect all findings from all settings
+    const findings: Finding[] = [];
+    settings.forEach(setting => {
+      findings.push(...setting.findings);
+    });
+  
+      gpos.push({ startedAtRaw: gpoStartRaw, header, settings, findings });
     }
   
     return { info, gpos, finishedAt, duration, raw };
