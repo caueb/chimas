@@ -69,6 +69,24 @@ const GPODetails: React.FC<GPODetailsProps> = ({
   const tableRef = useRef<HTMLTableElement>(null);
   const tableWrapperRef = useRef<HTMLDivElement>(null);
 
+  // Dropdown states
+  const [linkedDropdownOpen, setLinkedDropdownOpen] = useState(false);
+
+  // Handle click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.unified-dropdown')) {
+        setLinkedDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   // Restore scroll position when component mounts
   useEffect(() => {
     if (tableWrapperRef.current && scrollTop > 0) {
@@ -227,7 +245,9 @@ const GPODetails: React.FC<GPODetailsProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
-      const currentIndex = selectedIndex;
+      
+      // Find current selected GPO index on this page
+      const currentIndex = selectedGPO ? currentPageData.findIndex(gpo => gpo === selectedGPO) : -1;
       let newIndex = currentIndex;
       
       if (e.key === 'ArrowDown') {
@@ -237,7 +257,6 @@ const GPODetails: React.FC<GPODetailsProps> = ({
       }
       
       if (newIndex !== currentIndex && newIndex >= 0 && newIndex < currentPageData.length) {
-        setSelectedIndex(newIndex);
         const gpo = currentPageData[newIndex];
         handleSelectGPO(gpo, newIndex);
         
@@ -257,23 +276,14 @@ const GPODetails: React.FC<GPODetailsProps> = ({
     }
   };
 
-
-  // Scroll to selected row when selection changes
-  React.useEffect(() => {
-    if (selectedIndex >= 0 && selectedIndex < currentPageData.length) {
-      setTimeout(() => {
-        const tableBody = tableRef.current?.querySelector('tbody');
-        const selectedRow = tableBody?.children[selectedIndex] as HTMLElement;
-        if (selectedRow) {
-          selectedRow.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'nearest'
-          });
-        }
-      }, 0);
+  // Clear selection highlighting when page changes and selected GPO is not on current page
+  // but keep the details panel open
+  useEffect(() => {
+    if (selectedGPO && !currentPageData.includes(selectedGPO)) {
+      setSelectedIndex(-1);
+      // Keep selectedGPO and showRightPanel unchanged to maintain details panel
     }
-  }, [selectedIndex, currentPageData.length]);
+  }, [currentPage, selectedGPO, currentPageData]);
 
   const handleCloseRightPanel = () => {
     setShowRightPanel(false);
@@ -392,11 +402,45 @@ const GPODetails: React.FC<GPODetailsProps> = ({
         <div className="panel-content">
           <div className="filter-section">
             <label>Linked</label>
-            <select value={linkedFilter} onChange={(e) => { handleFilterChange('linked', e.target.value); }}>
-              <option value="all">All</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
+            <div className="unified-dropdown">
+              <button 
+                className="unified-dropdown-button" 
+                onClick={() => setLinkedDropdownOpen(!linkedDropdownOpen)}
+              >
+                <span>{linkedFilter === 'all' ? 'All' : linkedFilter === 'yes' ? 'Yes' : 'No'}</span>
+                <span className="unified-dropdown-arrow">
+                  <i className="fas fa-chevron-down"></i>
+                </span>
+              </button>
+              {linkedDropdownOpen && (
+                <div className="unified-dropdown-menu show">
+                  <div className="unified-dropdown-item">
+                    <button 
+                      onClick={() => { handleFilterChange('linked', 'all'); setLinkedDropdownOpen(false); }} 
+                      className={linkedFilter === 'all' ? 'selected' : ''}
+                    >
+                      All
+                    </button>
+                  </div>
+                  <div className="unified-dropdown-item">
+                    <button 
+                      onClick={() => { handleFilterChange('linked', 'yes'); setLinkedDropdownOpen(false); }} 
+                      className={linkedFilter === 'yes' ? 'selected' : ''}
+                    >
+                      Yes
+                    </button>
+                  </div>
+                  <div className="unified-dropdown-item">
+                    <button 
+                      onClick={() => { handleFilterChange('linked', 'no'); setLinkedDropdownOpen(false); }} 
+                      className={linkedFilter === 'no' ? 'selected' : ''}
+                    >
+                      No
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -461,7 +505,7 @@ const GPODetails: React.FC<GPODetailsProps> = ({
                 ) : (
                   currentPageData.map((gpo, index) => {
                     const overallStatus = getOverallLinkStatus(gpo);
-                    const isSelected = selectedGPO === gpo || selectedIndex === index;
+                    const isSelected = selectedGPO === gpo;
                     return (
                       <tr 
                         key={index} 

@@ -71,14 +71,25 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 	const tableRef = useRef<HTMLTableElement>(null);
 	const tableWrapperRef = useRef<HTMLDivElement>(null);
 
+	// Dropdown states
+	const [scopeDropdownOpen, setScopeDropdownOpen] = useState(false);
+	const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+
 	const showRightPanel = selectedIndex !== null;
 
-	// Handle click outside to close export dropdown
+	// Handle click outside to close dropdowns
 	useEffect(() => {
 		const handleClickOutside = (event: MouseEvent) => {
 			const exportDropdown = document.getElementById('gpo-export-dropdown');
 			if (exportDropdown && !exportDropdown.contains(event.target as Node)) {
 				setShowExportDropdown(false);
+			}
+			
+			// Close filter dropdowns when clicking outside
+			const target = event.target as Element;
+			if (!target.closest('.unified-dropdown')) {
+				setScopeDropdownOpen(false);
+				setCategoryDropdownOpen(false);
 			}
 		};
 
@@ -440,21 +451,75 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 				<div className="panel-content">
 					<div className="filter-section">
 						<label>Scope</label>
-						<select value={scopeFilter} onChange={(e) => { setScopeFilter(e.target.value); setCurrentPage(1); }}>
-							<option value="all">All</option>
-							{scopes.map(s => (
-								<option key={s} value={s}>{s}</option>
-							))}
-						</select>
+						<div className="unified-dropdown">
+							<button 
+								className="unified-dropdown-button" 
+								onClick={() => setScopeDropdownOpen(!scopeDropdownOpen)}
+							>
+								<span>{scopeFilter === 'all' ? 'All' : scopeFilter}</span>
+								<span className="unified-dropdown-arrow">
+									<i className="fas fa-chevron-down"></i>
+								</span>
+							</button>
+							{scopeDropdownOpen && (
+								<div className="unified-dropdown-menu show">
+									<div className="unified-dropdown-item">
+										<button 
+											onClick={() => { setScopeFilter('all'); setCurrentPage(1); setScopeDropdownOpen(false); }} 
+											className={scopeFilter === 'all' ? 'selected' : ''}
+										>
+											All
+										</button>
+									</div>
+									{scopes.map(s => (
+										<div key={s} className="unified-dropdown-item">
+											<button 
+												onClick={() => { setScopeFilter(s); setCurrentPage(1); setScopeDropdownOpen(false); }} 
+												className={scopeFilter === s ? 'selected' : ''}
+											>
+												{s}
+											</button>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
 					</div>
 					<div className="filter-section">
 						<label>Category</label>
-						<select value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }}>
-							<option value="all">All</option>
-							{categories.map(c => (
-								<option key={c} value={c}>{c}</option>
-							))}
-						</select>
+						<div className="unified-dropdown">
+							<button 
+								className="unified-dropdown-button" 
+								onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+							>
+								<span>{categoryFilter === 'all' ? 'All' : categoryFilter}</span>
+								<span className="unified-dropdown-arrow">
+									<i className="fas fa-chevron-down"></i>
+								</span>
+							</button>
+							{categoryDropdownOpen && (
+								<div className="unified-dropdown-menu show">
+									<div className="unified-dropdown-item">
+										<button 
+											onClick={() => { setCategoryFilter('all'); setCurrentPage(1); setCategoryDropdownOpen(false); }} 
+											className={categoryFilter === 'all' ? 'selected' : ''}
+										>
+											All
+										</button>
+									</div>
+									{categories.map(c => (
+										<div key={c} className="unified-dropdown-item">
+											<button 
+												onClick={() => { setCategoryFilter(c); setCurrentPage(1); setCategoryDropdownOpen(false); }} 
+												className={categoryFilter === c ? 'selected' : ''}
+											>
+												{c}
+											</button>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
 					</div>
 				</div>
 			</div>
