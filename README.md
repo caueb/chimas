@@ -82,12 +82,12 @@ Expected format:
 ]}
 ```
 
-You can repair the file with a simple bash one-liner:
+You can repair the file using jq:
 ```bash
-(echo '{"entries":['; sed '$!s/$/,/' snaffler.json | tr -d '\r'; echo ']}' ) > fixed.json
+jq -s '{entries: .}' snaffler.json > snaffler-fixed.json
 ```
 This wraps the objects into a valid JSON array and adds commas between entries.  
-Then you can load `fixed.json` into Chimas.
+Then you can load `snaffler-fixed.json` into Chimas.
 
 
 # Disclaimer
