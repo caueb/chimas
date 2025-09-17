@@ -10,8 +10,6 @@ import { GPODashboard } from './components/GPODashboard';
 import { ShareResults } from './components/ShareResults';
 import { ErrorDisplay } from './components/ErrorDisplay';
 import { parseSnafflerData, parseShareData } from './utils/parser';
-import { format } from 'date-fns';
-import * as ExcelJS from 'exceljs';
 import { parseGPO, GPOReport } from './utils/GPOParser';
 import GPOResults from './components/GPOResults.tsx';
 import GPODetails from './components/GPODetails.tsx';
@@ -203,9 +201,10 @@ function App() {
 
   // Refs
   const filtersPanelRef = useRef<HTMLDivElement>(null);
-  const prevCustomFiltersRef = useRef<CustomFilter[]>([]);
   const leftResizerRef = useRef<HTMLDivElement>(null);
   const rightResizerRef = useRef<HTMLDivElement>(null);
+  const fileTableWrapperRef = useRef<HTMLDivElement>(null);
+  const [fileResultsScrollTop, setFileResultsScrollTop] = useState<number>(0);
 
   // Helpers for persistence
   const getStoredPct = (key: string, fallback: number) => {
@@ -695,6 +694,18 @@ function App() {
     setCurrentView('file-results');
   };
 
+  // Restore File Results table scroll when returning to the view
+  useEffect(() => {
+    if (currentView === 'file-results') {
+      // Restore after first paint
+      setTimeout(() => {
+        if (fileTableWrapperRef.current && fileResultsScrollTop > 0) {
+          fileTableWrapperRef.current.scrollTop = fileResultsScrollTop;
+        }
+      }, 0);
+    }
+  }, [currentView, fileResultsScrollTop]);
+
   const handleFilterBySystem = (systemId: string) => {
     setSearchFilter(systemId);
     setRatingFilter(['all']); // Reset rating filter
@@ -894,214 +905,6 @@ function App() {
     } else if (currentView === 'GPO-results' && GPOReport) {
       await exportGPOToXLSX(GPOReport);
     }
-  };
-
-  // XLSX Export function
-  const exportToXLSX = async () => {
-    // Filter out false positive
-    const exportResults = filteredResults.filter(result => {
-      const key = `${result.fullPath}-${result.fileName}`;
-      return !falsePositives.has(key);
-    });
-    
-    if (exportResults.length === 0) return;
-
-    const workbook = new ExcelJS.Workbook();
-    
-    // Create "Information" worksheet
-    const infoSheet = workbook.addWorksheet('Information');
-    
-    // Get basic information about the data
-    const dateStr = new Date().toLocaleString();
-    const totalFiles = allResults.length;
-    const filteredFiles = exportResults.length;
-    const falsePositiveCount = falsePositives.size;
-    const ratingColors = {
-      "Black": "FF000000",
-      "Red": "FFFF0000",
-      "Yellow": "FFFFFF00",
-      "Green": "FF00FF00"
-    };
-    
-    // Style the information sheet
-    infoSheet.columns = [
-      { header: "Chimas Information", key: "property", width: 40 },
-      { header: "", key: "value", width: 40 }
-    ];
-    
-    // Add information rows
-    const infoData = [
-      { property: "Export Date", value: dateStr },
-      { property: "Total Files Found", value: totalFiles.toString() },
-      { property: "Files in Export", value: filteredFiles.toString() },
-      { property: "False Positives Excluded", value: falsePositiveCount.toString() },
-      { property: "Red Findings", value: stats.red.toString() },
-      { property: "Yellow Findings", value: stats.yellow.toString() },
-      { property: "Green Findings", value: stats.green.toString() },
-      { property: "Black Findings", value: stats.black.toString() },
-      { property: "Source File", value: loadedFileName || "Unknown" }
-    ];
-    
-    infoSheet.addRows(infoData);
-    
-    // Style the header row
-    infoSheet.getRow(1).font = { bold: true };
-
-    for (var cellIdx of [ "A1", "B1" ]) {
-      infoSheet.getCell(cellIdx).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFE0E0E0' }
-      };
-    }
-    
-    // Add Results worksheet
-    const resultsSheet = workbook.addWorksheet('Results');
-    const headers: any[] = [];
-    const colKeys: string[] = [];
-    
-    if (visibleColumns.rating) {
-      headers.push({ header: 'Rating', key: 'rating', width: 10 });
-      colKeys.push('rating');
-    }
-
-    if (visibleColumns.fullPath) {
-      headers.push({ header: 'Full Path', key: 'fullPath', width: 60 });
-      colKeys.push('fullPath');
-    }
-
-    if (visibleColumns.creationTime) {
-      headers.push({ header: 'Creation Time', key: 'creationTime', width: 20 });
-      colKeys.push('creationTime');
-    }
-
-    if (visibleColumns.lastModified) {
-      headers.push({ header: 'Last Modified', key: 'lastModified', width: 20 });
-      colKeys.push('lastModified');
-    }
-
-    if (visibleColumns.size) {
-      headers.push({ header: 'Size', key: 'size', width: 12 });
-      colKeys.push('size');
-    }
-    
-    resultsSheet.columns = headers;
-    
-    // Helper function to format date
-    const formatDate = (dateString: string) => {
-      try {
-        return format(new Date(dateString), 'dd/MM/yyyy HH:mm:ss');
-      } catch {
-        return dateString;
-      }
-    };
-
-    const formatFileSize = (size: string) => {
-      const sizeNum = parseInt(size);
-      if (isNaN(sizeNum)) return size;
-      
-      if (sizeNum < 1024) return `${sizeNum} B`;
-      if (sizeNum < 1024 * 1024) return `${(sizeNum / 1024).toFixed(1)} KB`;
-      if (sizeNum < 1024 * 1024 * 1024) return `${(sizeNum / (1024 * 1024)).toFixed(1)} MB`;
-      return `${(sizeNum / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-    };
-    
-    // Add data rows like CSV
-    exportResults.forEach((result, index) => {
-      const rowData: any = {};
-      
-      if (visibleColumns.rating) rowData.rating = result.rating;
-      if (visibleColumns.fullPath) rowData.fullPath = result.fullPath;
-      if (visibleColumns.creationTime) rowData.creationTime = formatDate(result.creationTime);
-      if (visibleColumns.lastModified) rowData.lastModified = formatDate(result.lastModified);
-      if (visibleColumns.size) rowData.size = formatFileSize(result.size);
-      
-      const row = resultsSheet.addRow(rowData);
-      
-      // Color code the rating cell
-      if (visibleColumns.rating && result.rating) {
-        const ratingColumnIndex = colKeys.indexOf('rating') + 1;
-        const cell = row.getCell(ratingColumnIndex);
-        
-        // Set background color based on rating
-        switch (result.rating.toLowerCase()) {
-          case "red":
-            cell.fill = {
-              type: 'pattern',
-              pattern: 'solid',
-              fgColor: { argb: ratingColors.Red }
-            };
-            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            break;
-            
-          case "yellow":
-            cell.fill = {
-              type: 'pattern',
-              pattern: 'solid',
-              fgColor: { argb: ratingColors.Yellow }
-            };
-            cell.font = { bold: true };
-            break;
-
-          case "green":
-            cell.fill = {
-              type: 'pattern',
-              pattern: 'solid',
-              fgColor: { argb: ratingColors.Green }
-            };
-            cell.font = { bold: true };
-            break;
-
-          case "black":
-            cell.fill = {
-              type: 'pattern',
-              pattern: 'solid',
-              fgColor: { argb: ratingColors.Black }
-            };
-            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            break;
-        }
-      }
-    });
-    
-    // Header row styling
-    for (var cellI = 0; cellI < headers.length; cellI++) { 
-      let cellChar = String.fromCharCode(65 + cellI);
-      let cellIdx = `${cellChar}1`;
-      resultsSheet.getCell(cellIdx).font = { bold: true };
-      resultsSheet.getCell(cellIdx).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF4472C4' }
-      };
-      resultsSheet.getCell(cellIdx).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    }
-    
-    // Add filter 
-    resultsSheet.autoFilter = {
-      from: "A1",
-      to: `${String.fromCharCode(64 + headers.length)}${exportResults.length + 1}`
-    };
-    
-    resultsSheet.views = [
-      { state: "frozen", ySplit: 1 }
-    ];
-    
-    // Generate / download the file
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { 
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
-    });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute("href", url);
-    link.setAttribute("download", `snaffler-results-${new Date().toISOString().split('T')[0]}.xlsx`);
-    link.style.visibility = "hidden";
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   // Apply theme to document
@@ -1334,7 +1137,14 @@ function App() {
                     </div>
                   </div>
                 </div>
-                <div className="table-wrapper">
+                <div
+                  className="table-wrapper"
+                  ref={fileTableWrapperRef}
+                  onScroll={(e) => {
+                    const target = e.currentTarget as HTMLDivElement;
+                    setFileResultsScrollTop(target.scrollTop);
+                  }}
+                >
                   <ResultsTable
                     results={currentPageData}
                     selectedResult={selectedResult}
