@@ -224,11 +224,11 @@ Jan 15 10:31:00 [File] <Black>C:\\\\documents\\\\normal.pdf</Black>`;
           {renderExpectedFormat()}
           
           <div className="bash-command-section">
-            If your <b>snaffler.json</b> is missing commas between entries, try this bash command:
+            If your <b>snaffler.json</b> is missing commas between entries, try this jq command:
             <div className="bash-command-box">
-              <code>{`(echo '{"entries":['; sed '$!s/$/,/' snaffler.json | tr -d '\r'; echo ']}' ) > fixed.json`}</code>
+              <code>{`jq -s '{entries: .}' snaffler.json > snaffler-fixed.json`}</code>
             </div>
-            This wraps the objects into a valid JSON array and adds commas between entries. Then you can load <b>fixed.json</b> into Chimas.
+            This wraps the objects into a valid JSON array and adds commas between entries. Then you can load <b>snafller-fixed.json</b> into Chimas.
           </div>
         </div>
 
