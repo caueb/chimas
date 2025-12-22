@@ -38,89 +38,6 @@ function parseMatchContext(matchContext: string): string {
   }
 }
 
-/**
- * Remove duplicate entries from the results array
- * Duplicates are identified by the combination of fullPath, rating, and ruleName
- */
-function removeDuplicates(results: FileResult[]): FileResult[] {
-  const seen = new Set<string>();
-  const uniqueResults: FileResult[] = [];
-  let duplicateCount = 0;
-  const debugMode = false; // Set to true for verbose logging
-
-  for (const result of results) {
-    // Create a unique key based on path, rating, and rule
-    const uniqueKey = `${result.fullPath}|${result.rating}|${result.ruleName}`;
-    
-    if (!seen.has(uniqueKey)) {
-      seen.add(uniqueKey);
-      uniqueResults.push(result);
-    } else {
-      duplicateCount++;
-      if (debugMode) {
-        console.log(`Duplicate detected and removed: ${result.fullPath} (${result.rating}) - Rule: ${result.ruleName}`);
-      }
-    }
-  }
-
-  if (duplicateCount > 0) {
-    // console.log(`Duplicate detection: ${duplicateCount} duplicates removed (${results.length} → ${uniqueResults.length} files)`);
-  }
-
-  return uniqueResults;
-}
-
-/**
- * Additional duplicate detection for edge cases
- * This function looks for files with the same path but different ratings/rules
- * and keeps the highest priority rating (Red > Yellow > Green > Black)
- * For files matched by multiple rules, it combines the rule names
- */
-function removePriorityDuplicates(results: FileResult[]): FileResult[] {
-  const fileMap = new Map<string, FileResult>();
-  const priorityOrder = { 'Red': 4, 'Yellow': 3, 'Green': 2, 'Black': 1 };
-  let replacedCount = 0;
-  let combinedCount = 0;
-  const debugMode = false; // Set to true for verbose logging
-
-  for (const result of results) {
-    const existing = fileMap.get(result.fullPath);
-    
-    if (!existing) {
-      fileMap.set(result.fullPath, result);
-    } else {
-      // If we have the same file with different ratings, keep the higher priority one
-      const existingPriority = priorityOrder[existing.rating as keyof typeof priorityOrder] || 0;
-      const newPriority = priorityOrder[result.rating as keyof typeof priorityOrder] || 0;
-      
-      if (newPriority > existingPriority) {
-        if (debugMode) {
-          console.log(`Replacing ${existing.rating} with ${result.rating} for: ${result.fullPath}`);
-        }
-        fileMap.set(result.fullPath, result);
-        replacedCount++;
-      } else if (newPriority === existingPriority) {
-        // Same priority, combine rule names if they're different
-        if (result.ruleName !== existing.ruleName) {
-          const combinedRuleName = `${existing.ruleName}, ${result.ruleName}`;
-          const updatedResult = { ...existing, ruleName: combinedRuleName };
-          fileMap.set(result.fullPath, updatedResult);
-          combinedCount++;
-          if (debugMode) {
-            console.log(`Combined rules for: ${result.fullPath} - ${combinedRuleName}`);
-          }
-        }
-      }
-    }
-  }
-
-  if (replacedCount > 0 || combinedCount > 0) {
-    // console.log(`Priority-based processing: ${replacedCount} files updated to higher priority ratings, ${combinedCount} rule combinations`);
-  }
-
-  return Array.from(fileMap.values());
-}
-
 export function parseSnafflerJson(jsonData: SnafflerJsonData): { results: FileResult[]; duplicateStats?: any } {
   const results: FileResult[] = [];
 
@@ -131,15 +48,8 @@ export function parseSnafflerJson(jsonData: SnafflerJsonData): { results: FileRe
     }
   }
 
-  const originalCount = results.length;
-  
-  // Apply both duplicate detection methods
-  const noDuplicates = removeDuplicates(results);
-  const finalResults = removePriorityDuplicates(noDuplicates);
-  
-  const duplicateStats = getDuplicateStats(originalCount, finalResults.length);
-  
-  return { results: finalResults, duplicateStats };
+  // Return results without deduplication
+  return { results, duplicateStats: undefined };
 }
 
 function parseJsonFileEntry(entry: SnafflerEntry): FileResult[] {
@@ -276,15 +186,8 @@ export function parseSnafflerText(textData: string): { results: FileResult[]; du
     }
   }
 
-  const originalCount = results.length;
-  
-  // Apply both duplicate detection methods
-  const noDuplicates = removeDuplicates(results);
-  const finalResults = removePriorityDuplicates(noDuplicates);
-  
-  const duplicateStats = getDuplicateStats(originalCount, finalResults.length);
-  
-  return { results: finalResults, duplicateStats };
+  // Return results without deduplication
+  return { results, duplicateStats: undefined };
 }
 
 function parseTextFileLine(line: string): FileResult | null {
@@ -936,4 +839,3 @@ function parseTextShareLine(line: string): ShareResult | null {
 
   return null;
 }
-
