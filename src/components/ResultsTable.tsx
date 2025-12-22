@@ -181,22 +181,27 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         </thead>
         <tbody>
           {results.map((result, index) => {
-            // Create a stable key based on file properties
-            const stableKey = `${result.fileName}-${result.fullPath}-${result.rating}-${result.size}`;
+            // Create a unique key that includes multiple properties and index to ensure uniqueness
+            // Include matchContext and ruleName to differentiate entries with same file but different matches
+            const stableKey = `${result.fullPath}-${result.fileName}-${result.rating}-${result.size}-${result.creationTime}-${result.lastModified}-${(result.matchContext || '').substring(0, 50)}-${result.ruleName}-${index}`;
             
-            // Create a stable key for the selected result for comparison
+            // Create a stable key for the selected result for comparison (without index for matching)
             const selectedStableKey = selectedResult ? 
-              `${selectedResult.fileName}-${selectedResult.fullPath}-${selectedResult.rating}-${selectedResult.size}` : null;
+              `${selectedResult.fullPath}-${selectedResult.fileName}-${selectedResult.rating}-${selectedResult.size}-${selectedResult.creationTime}-${selectedResult.lastModified}-${(selectedResult.matchContext || '').substring(0, 50)}-${selectedResult.ruleName}` : null;
             
             // Check if this result is marked as false positive
             const falsePositiveKey = `${result.fullPath}-${result.fileName}`;
             const isFalsePositive = falsePositives.has(falsePositiveKey);
             
+            // Match selected result using properties without index
+            const resultKey = `${result.fullPath}-${result.fileName}-${result.rating}-${result.size}-${result.creationTime}-${result.lastModified}-${(result.matchContext || '').substring(0, 50)}-${result.ruleName}`;
+            const isSelected = selectedStableKey === resultKey;
+            
             return (
             <tr
                 key={stableKey}
               onClick={() => onSelectResult(result)}
-                className={`${selectedStableKey === stableKey ? 'selected' : ''} ${isFalsePositive ? 'false-positive' : ''}`}
+                className={`${isSelected ? 'selected' : ''} ${isFalsePositive ? 'false-positive' : ''}`}
                 style={{ cursor: 'pointer' }}
             >
               {visibleColumns.rating && (

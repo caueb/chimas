@@ -770,14 +770,101 @@ function App() {
     // Apply credentials filter
     if (credentialsFilter) {
       filtered = filtered.filter(result => {
+        // First, check if the filename itself contains credential keywords
+        // Files like "password.txt" or "passwords.txt" should be included
+        const fileNameLower = result.fileName.toLowerCase();
+        const fileNameHasKeyword = CREDENTIALS_KEYWORDS.some(keyword => 
+          fileNameLower.includes(keyword.toLowerCase())
+        );
+        
+        // If filename contains credential keywords, include it (even if matchContext is just filename)
+        if (fileNameHasKeyword) {
+          return true;
+        }
+        
+        // Helper function to check if matchContext looks like a rule name or configuration
+        const isRuleOrConfig = (context: string): boolean => {
+          const contextTrimmed = context.trim();
+          if (!contextTrimmed) return false;
+          
+          // Check for comma-separated camelCase patterns (like "HasPassword,LookNearbyFor.txtFiles")
+          if (/^[A-Z][a-zA-Z]*(?:,[A-Z][a-zA-Z]*)+/.test(contextTrimmed)) {
+            return true;
+          }
+          
+          // Check for camelCase patterns that look like rule names (multiple capital letters)
+          // Pattern: starts with capital, has multiple capital letters, no spaces
+          if (/^[A-Z][a-z]*[A-Z]/.test(contextTrimmed) && !/\s/.test(contextTrimmed)) {
+            // But allow if it's very short and might be actual content
+            if (contextTrimmed.length > 30) {
+              return true;
+            }
+          }
+          
+          // Check for patterns that look like configuration strings
+          // Multiple camelCase words separated by commas or other delimiters
+          if (/[A-Z][a-zA-Z]*[A-Z][a-zA-Z]*(?:[,;]|\s+)[A-Z][a-zA-Z]*/.test(contextTrimmed)) {
+            return true;
+          }
+          
+          return false;
+        };
+        
+        // Helper function to check if matchContext is just a filename or ends with extensions
+        const isJustFilename = (context: string, fileName: string): boolean => {
+          const contextLower = context.trim().toLowerCase();
+          const fileNameLower = fileName.toLowerCase();
+          
+          // Check if matchContext is exactly the filename or just contains the filename
+          if (contextLower === fileNameLower || contextLower === fileNameLower.replace(/^.*[\\/]/, '')) {
+            return true;
+          }
+          
+          // Check if matchContext ends with common file extensions (single or double)
+          // Common extensions
+          const extensionPattern = /\.(txt|log|bak|old|tmp|temp|swp|swo|orig|backup|copy|~|dat|csv|json|xml|html|htm|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|tar|gz|bz2|7z|exe|dll|sys|bin|ini|cfg|conf|config|properties|yml|yaml|env|sh|bat|cmd|ps1|vbs|js|py|java|cpp|c|h|hpp|cs|php|rb|pl|sql|db|sqlite|mdb|accdb|ldf|mdf|dbf|dwg|dxf|psd|ai|eps|svg|png|jpg|jpeg|gif|bmp|tiff|ico|mp3|mp4|avi|mov|wmv|flv|mkv|iso|img|vmdk|vdi|vhd|ova|ovf)(\.(bak|old|tmp|temp|swp|orig|backup|copy|~))?$/i;
+          
+          if (extensionPattern.test(contextLower)) {
+            return true;
+          }
+          
+          // Check if matchContext is very short (likely just a filename without path)
+          // and doesn't contain meaningful content (no spaces, no common words)
+          if (contextLower.length < 20 && !/\s/.test(contextLower) && !/[a-z]{4,}/.test(contextLower)) {
+            return true;
+          }
+          
+          return false;
+        };
+        
+        // Get and validate matchContext
+        const matchContext = (result.matchContext || '').trim();
+        const hasValidMatchContext = matchContext && 
+          !isJustFilename(matchContext, result.fileName) && 
+          !isRuleOrConfig(matchContext);
+        
+        // Filter matchedStrings to exclude filenames, extensions, and rule/config patterns
+        const matchedStrings = (result.matchedStrings || [])
+          .map(s => (s || '').trim())
+          .filter(s => s.length > 0 && 
+            !isJustFilename(s, result.fileName) && 
+            !isRuleOrConfig(s));
+        
+        // Skip if no valid content to check (neither matchContext nor matchedStrings have actual content)
+        if (!hasValidMatchContext && matchedStrings.length === 0) {
+          return false;
+        }
+        
+        // Build search text from valid content only (exclude filename)
         const searchText = [
-          result.matchContext,
-          ...result.matchedStrings
+          ...(hasValidMatchContext ? [matchContext] : []),
+          ...matchedStrings
         ].join(' ').toLowerCase();
         
+        // Check if any keyword appears in the actual content
         return CREDENTIALS_KEYWORDS.some(keyword => 
           searchText.includes(keyword.toLowerCase())
-      );
+        );
       });
     }
     
@@ -798,8 +885,8 @@ function App() {
       });
     }
     
-    // Sort results
-    const sortedResults = filtered.sort((a, b) => {
+    // Sort results (create a copy first to avoid mutating the filtered array)
+    const sortedResults = [...filtered].sort((a, b) => {
       let aValue: any = a[sortField];
       let bValue: any = b[sortField];
       

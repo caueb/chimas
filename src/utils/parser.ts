@@ -40,15 +40,26 @@ function parseMatchContext(matchContext: string): string {
 
 export function parseSnafflerJson(jsonData: SnafflerJsonData): { results: FileResult[]; duplicateStats?: any } {
   const results: FileResult[] = [];
+  const seenEntries = new Set<string>();
 
   for (const entry of jsonData.entries) {
     if (entry.level === 'Warn' && entry.message.includes('[File]')) {
       const fileResults = parseJsonFileEntry(entry);
-      results.push(...fileResults);
+      
+      for (const result of fileResults) {
+        // Create a unique key for this entry based on all properties
+        // This ensures we only deduplicate entries that are completely identical
+        const entryKey = `${result.fullPath}|${result.ruleName}|${result.matchContext}|${result.creationTime}|${result.lastModified}|${result.rating}|${result.size}`;
+        
+        // Only add if we haven't seen this exact entry before
+        if (!seenEntries.has(entryKey)) {
+          seenEntries.add(entryKey);
+          results.push(result);
+        }
+      }
     }
   }
 
-  // Return results without deduplication
   return { results, duplicateStats: undefined };
 }
 
@@ -175,18 +186,26 @@ function parseJsonFileEntry(entry: SnafflerEntry): FileResult[] {
 
 export function parseSnafflerText(textData: string): { results: FileResult[]; duplicateStats?: any } {
   const results: FileResult[] = [];
+  const seenEntries = new Set<string>();
   const lines = textData.split('\n');
 
   for (const line of lines) {
     if (line.trim() && line.includes('[File]')) {
       const result = parseTextFileLine(line);
       if (result) {
-        results.push(result);
+        // Create a unique key for this entry based on all properties
+        // This ensures we only deduplicate entries that are completely identical
+        const entryKey = `${result.fullPath}|${result.ruleName}|${result.matchContext}|${result.creationTime}|${result.lastModified}|${result.rating}|${result.size}`;
+        
+        // Only add if we haven't seen this exact entry before
+        if (!seenEntries.has(entryKey)) {
+          seenEntries.add(entryKey);
+          results.push(result);
+        }
       }
     }
   }
 
-  // Return results without deduplication
   return { results, duplicateStats: undefined };
 }
 
