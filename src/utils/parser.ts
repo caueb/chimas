@@ -621,7 +621,6 @@ export function extractUserInfo(results: FileResult[]): {
         let user = parts[1];
         
         // Handle case where user part contains additional @machine suffix
-        // e.g., "cybercx@cybprdocaw001" -> extract just "cybercx"
         if (user.includes('@')) {
           user = user.split('@')[0];
         }
