@@ -770,18 +770,18 @@ function App() {
     // Apply credentials filter
     if (credentialsFilter) {
       filtered = filtered.filter(result => {
-        // First, check if the filename itself contains credential keywords
-        // Files like "password.txt" or "passwords.txt" should be included
+        // If the filename itself clearly looks like credentials (e.g. password.txt, creds.xml),
+        // always include it regardless of match context content.
+        // To avoid false positives like "passage", only use stronger/longer keywords for filenames.
         const fileNameLower = result.fileName.toLowerCase();
-        const fileNameHasKeyword = CREDENTIALS_KEYWORDS.some(keyword => 
+        const strongFileNameKeywords = CREDENTIALS_KEYWORDS.filter(k => k.length >= 5);
+        const fileNameHasKeyword = strongFileNameKeywords.some(keyword =>
           fileNameLower.includes(keyword.toLowerCase())
         );
-        
-        // If filename contains credential keywords, include it (even if matchContext is just filename)
         if (fileNameHasKeyword) {
           return true;
         }
-        
+
         // Helper function to check if matchContext looks like a rule name or configuration
         const isRuleOrConfig = (context: string): boolean => {
           const contextTrimmed = context.trim();
@@ -810,7 +810,7 @@ function App() {
           return false;
         };
         
-        // Helper function to check if matchContext is just a filename or ends with extensions
+        // Helper function to check if matchContext is just a filename or only extensions
         const isJustFilename = (context: string, fileName: string): boolean => {
           const contextLower = context.trim().toLowerCase();
           const fileNameLower = fileName.toLowerCase();
@@ -820,9 +820,8 @@ function App() {
             return true;
           }
           
-          // Check if matchContext ends with common file extensions (single or double)
-          // Common extensions
-          const extensionPattern = /\.(txt|log|bak|old|tmp|temp|swp|swo|orig|backup|copy|~|dat|csv|json|xml|html|htm|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|tar|gz|bz2|7z|exe|dll|sys|bin|ini|cfg|conf|config|properties|yml|yaml|env|sh|bat|cmd|ps1|vbs|js|py|java|cpp|c|h|hpp|cs|php|rb|pl|sql|db|sqlite|mdb|accdb|ldf|mdf|dbf|dwg|dxf|psd|ai|eps|svg|png|jpg|jpeg|gif|bmp|tiff|ico|mp3|mp4|avi|mov|wmv|flv|mkv|iso|img|vmdk|vdi|vhd|ova|ovf)(\.(bak|old|tmp|temp|swp|orig|backup|copy|~))?$/i;
+          // Check if matchContext is just a common file extension (e.g. ".bak") or a double extension (".txt.bak")
+          const extensionPattern = /^\.([a-z0-9]{1,6})(\.(bak|old|tmp|temp|swp|orig|backup|copy|~))?$/i;
           
           if (extensionPattern.test(contextLower)) {
             return true;
@@ -849,7 +848,13 @@ function App() {
           .filter(s => s.length > 0 && 
             !isJustFilename(s, result.fileName) && 
             !isRuleOrConfig(s));
-        
+
+        // Explicitly drop double‑extension backup files (e.g. "*.txt.bak") when there is no real content
+        const isDoubleExtensionFile = /\.[a-z0-9]{1,6}\.(bak|old|tmp|temp|swp|orig|backup|copy|pdf|docx|xlsx|pptx|zip|rar|tar|gz|bz2|7z|exe|dll|sys|bin|ini|cfg|conf|config|properties|yml|yaml|env|sh|bat|cmd|ps1|vbs|js|py|java|cpp|c|h|hpp|cs|php|rb|pl|sql|db|sqlite|mdb|accdb|ldf|mdf|dbf|dwg|dxf|psd|ai|eps|svg|png|jpg|jpeg|gif|bmp|tiff|ico|mp3|mp4|avi|mov|wmv|flv|mkv|iso|img|vmdk|vdi|vhd|ova|ovf|~)$/.test(fileNameLower);
+        if (isDoubleExtensionFile && !hasValidMatchContext && matchedStrings.length === 0) {
+          return false;
+        }
+
         // Skip if no valid content to check (neither matchContext nor matchedStrings have actual content)
         if (!hasValidMatchContext && matchedStrings.length === 0) {
           return false;
