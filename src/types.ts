@@ -9,6 +9,9 @@ export interface SnafflerJsonData {
   entries: SnafflerEntry[];
 }
 
+// Re-export RiskScore types from riskScoring utility
+export type { RiskScore, RiskFactor } from './utils/riskScoring';
+
 export interface FileResult {
   rating: 'Red' | 'Green' | 'Yellow' | 'Black';
   fullPath: string;
@@ -28,6 +31,7 @@ export interface FileResult {
     deleteable: boolean;
   };
   isFalsePositive?: boolean; // Track if this item is marked as false positive
+  riskScore?: import('./utils/riskScoring').RiskScore; // Calculated risk score
 }
 
 export interface ShareResult {
@@ -59,5 +63,37 @@ export interface CustomFilter {
   text: string;
 }
 
-export type SortField = 'rating' | 'fullPath' | 'creationTime' | 'lastModified' | 'size';
-export type SortDirection = 'asc' | 'desc'; 
+export type SortField = 'rating' | 'fullPath' | 'creationTime' | 'lastModified' | 'size' | 'riskScore';
+export type SortDirection = 'asc' | 'desc';
+
+// Duplicate detection statistics from parser
+export interface DuplicateStats {
+  totalOriginal: number;
+  totalFinal: number;
+  duplicatesRemoved: number;
+  duplicatePercentage: number;
+}
+
+// Error information for file parsing errors
+export interface ErrorInfo {
+  message: string;
+  snippet?: string;
+  errorPosition?: number;
+  fileName?: string;
+  fileType?: 'json' | 'text' | 'log';
+  actualLineNumber?: number;
+  snippetStartLine?: number;
+}
+
+// Column visibility configuration for results table
+export interface VisibleColumns {
+  rating: boolean;
+  fullPath: boolean;
+  creationTime: boolean;
+  lastModified: boolean;
+  size: boolean;
+}
+
+// GPO sort field types
+export type GPODetailsSortField = 'gpo' | 'settingsCount' | 'linked';
+export type GPOResultsSortField = 'gpo' | 'scope' | 'category' | 'entries' | 'findings' | 'severity'; 

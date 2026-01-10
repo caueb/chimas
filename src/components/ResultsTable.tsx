@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { FileResult, SortField, SortDirection } from '../types';
-import { format } from 'date-fns';
+import { formatFileSize, formatDate } from '../utils/formatting';
 
 interface ResultsTableProps {
   results: FileResult[];
@@ -11,6 +11,7 @@ interface ResultsTableProps {
   onSort: (field: SortField) => void;
   visibleColumns: {
     rating: boolean;
+    risk: boolean;
     fullPath: boolean;
     creationTime: boolean;
     lastModified: boolean;
@@ -94,27 +95,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     };
   }, [selectedResult, results, onSelectResult]);
 
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), 'dd/MM/yyyy HH:mm:ss');
-    } catch {
-      return dateString;
-    }
-  };
-
   const getSortIcon = (field: SortField) => {
     if (sortField !== field) return '↕';
     return sortDirection === 'asc' ? '↑' : '↓';
-  };
-
-  const formatFileSize = (size: string) => {
-    const sizeNum = parseInt(size);
-    if (isNaN(sizeNum)) return size;
-    
-    if (sizeNum < 1024) return `${sizeNum} B`;
-    if (sizeNum < 1024 * 1024) return `${(sizeNum / 1024).toFixed(1)} KB`;
-    if (sizeNum < 1024 * 1024 * 1024) return `${(sizeNum / (1024 * 1024)).toFixed(1)} MB`;
-    return `${(sizeNum / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   };
 
   const scrollToTop = () => {
@@ -142,6 +125,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 Rating
                 <span className={`sort-icon ${sortField === 'rating' ? 'active' : ''}`}>
                   {getSortIcon('rating')}
+                </span>
+              </th>
+            )}
+            {visibleColumns.risk && (
+              <th className="risk-column" onClick={() => onSort('riskScore')}>
+                Risk
+                <span className={`sort-icon ${sortField === 'riskScore' ? 'active' : ''}`}>
+                  {getSortIcon('riskScore')}
                 </span>
               </th>
             )}
@@ -209,6 +200,15 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   <span className={`rating ${result.rating.toLowerCase()}`}>
                     {result.rating}
                   </span>
+                </td>
+              )}
+              {visibleColumns.risk && (
+                <td className="risk-cell">
+                  {result.riskScore && (
+                    <span className={`risk-score risk-${result.riskScore.level}`}>
+                      {result.riskScore.total}
+                    </span>
+                  )}
                 </td>
               )}
               {visibleColumns.fullPath && (

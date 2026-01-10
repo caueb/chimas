@@ -9,6 +9,7 @@ interface FiltersProps {
   sortDirection: SortDirection;
   customFilters: CustomFilter[];
   credentialsFilter: boolean;
+  scriptsConfigsFilter: boolean;
   onRatingFilterChange: (value: string[]) => void;
   onSearchFilterChange: (value: string) => void;
   onFileExtensionFilterChange: (value: string[]) => void;
@@ -16,6 +17,7 @@ interface FiltersProps {
   onSortDirectionChange: (direction: SortDirection) => void;
   onCustomFiltersChange: (filters: CustomFilter[]) => void;
   onCredentialsFilterChange: (value: boolean) => void;
+  onScriptsConfigsFilterChange: (value: boolean) => void;
   stats: {
     total: number;
     red: number;
@@ -34,6 +36,7 @@ export const Filters: React.FC<FiltersProps> = ({
   sortDirection,
   customFilters,
   credentialsFilter,
+  scriptsConfigsFilter,
   onRatingFilterChange,
   onSearchFilterChange,
   onFileExtensionFilterChange,
@@ -41,6 +44,7 @@ export const Filters: React.FC<FiltersProps> = ({
   onSortDirectionChange,
   onCustomFiltersChange,
   onCredentialsFilterChange,
+  onScriptsConfigsFilterChange,
   stats,
   isMinimized = false
 }) => {
@@ -154,7 +158,7 @@ export const Filters: React.FC<FiltersProps> = ({
           </div>
         </div>
         <div className="credentials-filter">
-          <button 
+          <button
             className={`credentials-filter-button ${credentialsFilter ? 'active' : ''}`}
             onClick={() => onCredentialsFilterChange(!credentialsFilter)}
           >
@@ -166,6 +170,18 @@ export const Filters: React.FC<FiltersProps> = ({
               <small>Filtering for keywords like password, passwd, p@ss, key, and others in the match context.</small>
             </div>
           )}
+          <button
+            className={`credentials-filter-button ${scriptsConfigsFilter ? 'active' : ''}`}
+            onClick={() => onScriptsConfigsFilterChange(!scriptsConfigsFilter)}
+          >
+            <i className="fas fa-file-code"></i>
+            {!isMinimized && <span>Scripts & Configs</span>}
+          </button>
+          {scriptsConfigsFilter && !isMinimized && (
+            <div className="credentials-filter-info">
+              <small>Filtering for .ps1, .bat, .cmd, .vbs, .js, .config, .xml, .ini, .conf, .yaml, .yml, .json</small>
+            </div>
+          )}
         </div>
       </div>
 
@@ -174,7 +190,7 @@ export const Filters: React.FC<FiltersProps> = ({
         <div className="file-extension-filter-input">
           <input
             type="text"
-            placeholder="Enter file extension (e.g., txt, pdf, docx)..."
+            placeholder="Enter file extension to show (e.g., txt, pdf, docx)..."
             value={fileExtensionInput}
             onChange={(e) => setFileExtensionInput(e.target.value)}
             onKeyPress={handleFileExtensionKeyPress}

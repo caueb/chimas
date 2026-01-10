@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { GPOReport } from '../utils/GPOParser';
 import { exportGPOToCSV, exportGPOToXLSX } from '../utils/exporter';
+import { LAYOUT } from '../utils/constants';
 
 interface GPOResultsProps {
 	report: GPOReport;
@@ -144,19 +145,16 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 	useEffect(() => {
 		const ww = window.innerWidth;
 		windowWidthRef.current = ww;
-		const storedLeftPct = getStoredPct('layout:gpo:leftPct', 300 / ww);
-		const storedRightPct = getStoredPct('layout:gpo:rightPct', 400 / ww);
-		const MIN_LEFT = 180;
-		const MIN_RIGHT = 280;
-		const MIN_CENTER = 480;
+		const storedLeftPct = getStoredPct('layout:gpo:leftPct', LAYOUT.DEFAULT_LEFT_PANEL / ww);
+		const storedRightPct = getStoredPct('layout:gpo:rightPct', LAYOUT.DEFAULT_RIGHT_PANEL / ww);
 		const computedRight = Math.round(storedRightPct * ww);
-		const maxLeft = Math.max(MIN_LEFT, ww - (showRightPanel ? computedRight : 0) - MIN_CENTER);
-		const newLeft = Math.max(MIN_LEFT, Math.min(Math.round(storedLeftPct * ww), maxLeft));
-		const maxRight = Math.max(MIN_RIGHT, ww - newLeft - MIN_CENTER);
-		const newRight = Math.max(MIN_RIGHT, Math.min(computedRight, maxRight));
+		const maxLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, ww - (showRightPanel ? computedRight : 0) - LAYOUT.MIN_CENTER_PANEL);
+		const newLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(Math.round(storedLeftPct * ww), maxLeft));
+		const maxRight = Math.max(LAYOUT.MIN_RIGHT_PANEL, ww - newLeft - LAYOUT.MIN_CENTER_PANEL);
+		const newRight = Math.max(LAYOUT.MIN_RIGHT_PANEL, Math.min(computedRight, maxRight));
 		setLeftPanelWidthPx(newLeft);
 		setRightPanelWidthPx(newRight);
-		previousLeftWidthRef.current = Math.max(MIN_LEFT, Math.round(storedLeftPct * ww));
+		previousLeftWidthRef.current = Math.max(LAYOUT.MIN_LEFT_PANEL, Math.round(storedLeftPct * ww));
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
@@ -167,16 +165,13 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 			const leftPct = leftPanelWidthPx / windowWidthRef.current;
 			const rightPct = rightPanelWidthPx / windowWidthRef.current;
 			windowWidthRef.current = ww;
-			const MIN_LEFT = 180;
-			const MIN_RIGHT = 280;
-			const MIN_CENTER = 480;
 			const computedLeft = Math.round(leftPct * ww);
 			const computedRight = Math.round(rightPct * ww);
-			const maxLeft = Math.max(MIN_LEFT, ww - (showRightPanel ? computedRight : 0) - MIN_CENTER);
-			setLeftPanelWidthPx(Math.max(MIN_LEFT, Math.min(computedLeft, maxLeft)));
+			const maxLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, ww - (showRightPanel ? computedRight : 0) - LAYOUT.MIN_CENTER_PANEL);
+			setLeftPanelWidthPx(Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(computedLeft, maxLeft)));
 			if (showRightPanel) {
-				const maxRight = Math.max(MIN_RIGHT, ww - (isLeftPanelMinimized ? 50 : leftPanelWidthPx) - MIN_CENTER);
-				setRightPanelWidthPx(Math.max(MIN_RIGHT, Math.min(computedRight, maxRight)));
+				const maxRight = Math.max(LAYOUT.MIN_RIGHT_PANEL, ww - (isLeftPanelMinimized ? LAYOUT.MINIMIZED_PANEL : leftPanelWidthPx) - LAYOUT.MIN_CENTER_PANEL);
+				setRightPanelWidthPx(Math.max(LAYOUT.MIN_RIGHT_PANEL, Math.min(computedRight, maxRight)));
 			}
 		};
 		window.addEventListener('resize', onResize);
@@ -198,21 +193,18 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 		const onMouseMove = (e: MouseEvent) => {
 			if (!draggingSide) return;
 			const ww = window.innerWidth;
-			const MIN_LEFT = 180;
-			const MIN_RIGHT = 280;
-			const MIN_CENTER = 480;
 			if (draggingSide === 'left') {
 				if (isLeftPanelMinimized) return;
 				let newLeft = e.clientX;
-				const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - MIN_CENTER;
-				newLeft = Math.max(MIN_LEFT, Math.min(newLeft, maxLeft));
+				const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - LAYOUT.MIN_CENTER_PANEL;
+				newLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(newLeft, maxLeft));
 				setLeftPanelWidthPx(newLeft);
 				previousLeftWidthRef.current = newLeft;
 			} else if (draggingSide === 'right') {
 				if (!showRightPanel) return;
 				let newRight = ww - e.clientX;
-				const maxRight = ww - (isLeftPanelMinimized ? 50 : leftPanelWidthPx) - MIN_CENTER;
-				newRight = Math.max(MIN_RIGHT, Math.min(newRight, maxRight));
+				const maxRight = ww - (isLeftPanelMinimized ? LAYOUT.MINIMIZED_PANEL : leftPanelWidthPx) - LAYOUT.MIN_CENTER_PANEL;
+				newRight = Math.max(LAYOUT.MIN_RIGHT_PANEL, Math.min(newRight, maxRight));
 				setRightPanelWidthPx(newRight);
 			}
 		};
@@ -228,17 +220,14 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 	// Clamp when right panel visibility changes
 	useEffect(() => {
 		const ww = window.innerWidth;
-		const MIN_LEFT = 180;
-		const MIN_RIGHT = 280;
-		const MIN_CENTER = 480;
 		if (showRightPanel) {
-			const maxLeft = Math.max(MIN_LEFT, ww - rightPanelWidthPx - MIN_CENTER);
-			setLeftPanelWidthPx(Math.max(MIN_LEFT, Math.min(leftPanelWidthPx, maxLeft)));
-			const maxRight = Math.max(MIN_RIGHT, ww - (isLeftPanelMinimized ? 50 : leftPanelWidthPx) - MIN_CENTER);
-			setRightPanelWidthPx(Math.max(MIN_RIGHT, Math.min(rightPanelWidthPx, maxRight)));
+			const maxLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, ww - rightPanelWidthPx - LAYOUT.MIN_CENTER_PANEL);
+			setLeftPanelWidthPx(Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(leftPanelWidthPx, maxLeft)));
+			const maxRight = Math.max(LAYOUT.MIN_RIGHT_PANEL, ww - (isLeftPanelMinimized ? LAYOUT.MINIMIZED_PANEL : leftPanelWidthPx) - LAYOUT.MIN_CENTER_PANEL);
+			setRightPanelWidthPx(Math.max(LAYOUT.MIN_RIGHT_PANEL, Math.min(rightPanelWidthPx, maxRight)));
 		} else {
-			const maxLeft = Math.max(MIN_LEFT, ww - MIN_CENTER);
-			setLeftPanelWidthPx(Math.max(MIN_LEFT, Math.min(leftPanelWidthPx, maxLeft)));
+			const maxLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, ww - LAYOUT.MIN_CENTER_PANEL);
+			setLeftPanelWidthPx(Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(leftPanelWidthPx, maxLeft)));
 		}
 	}, [showRightPanel, isLeftPanelMinimized, leftPanelWidthPx, rightPanelWidthPx]);
 
@@ -246,13 +235,11 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 		const next = !isLeftPanelMinimized;
 		if (next) {
 			previousLeftWidthRef.current = leftPanelWidthPx;
-			setLeftPanelWidthPx(50);
+			setLeftPanelWidthPx(LAYOUT.MINIMIZED_PANEL);
 		} else {
 			const ww = window.innerWidth;
-			const MIN_LEFT = 180;
-			const MIN_CENTER = 480;
-			const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - MIN_CENTER;
-			const restored = Math.max(MIN_LEFT, Math.min(previousLeftWidthRef.current || 300, maxLeft));
+			const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - LAYOUT.MIN_CENTER_PANEL;
+			const restored = Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(previousLeftWidthRef.current || LAYOUT.DEFAULT_LEFT_PANEL, maxLeft));
 			setLeftPanelWidthPx(restored);
 		}
 		setIsLeftPanelMinimized(next);
@@ -440,7 +427,7 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 		<div className={`main-content`}>
 			<div 
 				className={`left-panel ${isLeftPanelMinimized ? 'minimized' : ''}`}
-				style={{ width: isLeftPanelMinimized ? 50 : leftPanelWidthPx }}
+				style={{ width: isLeftPanelMinimized ? LAYOUT.MINIMIZED_PANEL : leftPanelWidthPx }}
 			>
 				<div className="panel-header">
 					<span>Filters</span>

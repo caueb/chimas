@@ -41,6 +41,7 @@
   --accent: #5AA3E0;
   --accent-hover: #4a93d0;
   --red: #792F2F;
+  --orange: #d35400;
   --green: #31B049;
   --yellow: #B0A631;
   --black: #141414;
@@ -70,6 +71,7 @@
   --accent-hover: #010129;
   --border: #dfdad9;
   --red: #9e0236;
+  --orange: #e67e22;
   --green: #08711D;
   --yellow: #F4C519;
   --black: #0f0f0f;
@@ -975,7 +977,7 @@ th {
 }
 
 th.rating-column {
-  width: 7%;
+  width: 10%;
   min-width: 80px;
 }
 
@@ -1029,7 +1031,7 @@ td {
 }
 
 td.rating-cell {
-  width: 7%;
+  width: 10%;
   min-width: 80px;
 }
 
@@ -3320,4 +3322,1082 @@ tr.selected:hover td {
   font-size: 0.85em;
   padding: 2px 6px;
   border-radius: 0px;
+}
+
+/* =====================================================
+   Risk Scoring Styles
+   ===================================================== */
+
+/* Risk Column in Results Table */
+th.risk-column {
+  width: 10%;
+  min-width: 45px;
+}
+
+td.risk-cell {
+  width: 10%;
+  min-width: 45px;
+}
+
+.risk-cell {
+  padding: 4px 8px;
+  text-align: center;
+}
+
+.risk-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.risk-bar-container {
+  flex: 1;
+  height: 6px;
+  background-color: var(--bg-overlay);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 40px;
+}
+
+.risk-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+  border-radius: 3px;
+}
+
+.risk-score {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.risk-score.risk-critical {
+  color: var(--red);
+}
+
+.risk-score.risk-high {
+  color: var(--orange, #e67e22);
+}
+
+.risk-score.risk-medium {
+  color: var(--yellow);
+}
+
+.risk-score.risk-low {
+  color: var(--green);
+}
+
+/* Risk level background classes for theme support */
+.risk-bg-critical {
+  background-color: var(--red);
+}
+
+.risk-bg-high {
+  background-color: var(--orange, #e67e22);
+}
+
+.risk-bg-medium {
+  background-color: var(--yellow);
+}
+
+.risk-bg-low {
+  background-color: var(--green);
+}
+
+/* Risk text colors for value display */
+.risk-score-value.risk-critical,
+.risk-critical {
+  color: var(--red);
+}
+
+.risk-score-value.risk-high,
+.risk-high {
+  color: var(--orange, #e67e22);
+}
+
+.risk-score-value.risk-medium,
+.risk-medium {
+  color: var(--yellow);
+}
+
+.risk-score-value.risk-low,
+.risk-low {
+  color: var(--green);
+}
+
+/* Risk score badge styling */
+.risk-score-badge {
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-right: 6px;
+  font-size: 0.75rem;
+}
+
+/* Risk Score Breakdown in Detail Panel */
+.risk-score-breakdown {
+  padding: 12px;
+  background-color: var(--bg-overlay);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border);
+}
+
+.risk-score-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.risk-score-total {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.risk-level-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.risk-factors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.risk-factor-item {
+  display: grid;
+  grid-template-columns: 100px 50px 1fr;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.risk-factor-name {
+  font-weight: 500;
+  color: var(--text-strong);
+}
+
+.risk-factor-points {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.risk-factor-description {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+/* =====================================================
+   Filter Profiles Styles
+   ===================================================== */
+
+.profile-section {
+  margin-bottom: 16px;
+}
+
+.profile-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-dropdown-container {
+  position: relative;
+  flex: 1;
+}
+
+.profile-dropdown-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: var(--transition-border);
+}
+
+.profile-dropdown-button:hover {
+  border-color: var(--accent);
+}
+
+.profile-dropdown-button.has-active {
+  border-color: var(--accent);
+  background-color: rgba(90, 163, 224, 0.1);
+}
+
+.profile-dropdown-button span {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.profile-dropdown-header {
+  padding: 8px 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background-color: var(--bg-overlay);
+}
+
+.profile-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-align: left;
+  transition: var(--transition-bg);
+}
+
+.profile-dropdown-item:hover {
+  background-color: var(--bg-overlay);
+}
+
+.profile-dropdown-item.active {
+  background-color: rgba(90, 163, 224, 0.15);
+  color: var(--accent);
+}
+
+.profile-dropdown-item.manage {
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  gap: 8px;
+}
+
+.profile-dropdown-item.manage i {
+  margin-right: 4px;
+}
+
+.profile-dropdown-divider {
+  height: 1px;
+  background-color: var(--border);
+  margin: 4px 0;
+}
+
+.clear-profile-button {
+  padding: 8px;
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition-bg);
+}
+
+.clear-profile-button:hover {
+  background-color: rgba(220, 53, 69, 0.2);
+  color: #dc3545;
+}
+
+/* Filter Profile Modal */
+.filter-profile-modal {
+  max-width: 500px;
+}
+
+.filter-profile-modal .profile-section {
+  margin-bottom: 24px;
+}
+
+.filter-profile-modal .profile-section h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-strong);
+}
+
+.save-profile-row {
+  display: flex;
+  gap: 8px;
+}
+
+.save-profile-row input {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  transition: var(--transition-border);
+}
+
+.profile-item.active {
+  border-color: var(--accent);
+  background-color: rgba(90, 163, 224, 0.1);
+}
+
+.profile-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-name {
+  font-weight: 500;
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.profile-badge {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.profile-badge.builtin {
+  background-color: rgba(90, 163, 224, 0.2);
+  color: var(--accent);
+}
+
+.profile-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.profile-rename-input {
+  padding: 4px 8px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--border-radius);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.no-profiles {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+}
+
+/* =====================================================
+   Modal Styles
+   ===================================================== */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.modal-content {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  margin: 0;
+}
+
+.modal-close-button {
+  padding: 8px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--border-radius);
+  transition: var(--transition-bg);
+}
+
+.modal-close-button:hover {
+  background-color: var(--bg-overlay);
+  color: var(--text);
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+/* =====================================================
+   Keyboard Shortcuts Modal
+   ===================================================== */
+
+.keyboard-shortcuts-modal {
+  max-width: 450px;
+}
+
+.shortcut-group {
+  margin-bottom: 24px;
+}
+
+.shortcut-group:last-child {
+  margin-bottom: 0;
+}
+
+.shortcut-group h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.shortcut-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.shortcut-keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shortcut-key {
+  padding: 4px 8px;
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-strong);
+  min-width: 24px;
+  text-align: center;
+}
+
+.shortcut-separator {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.shortcut-description {
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.shortcut-hint {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.shortcut-hint kbd {
+  padding: 2px 6px;
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+/* =====================================================
+   Navigation Badge Styles
+   ===================================================== */
+
+.nav-badge {
+  margin-left: 8px;
+  padding: 2px 6px;
+  background-color: rgba(90, 163, 224, 0.15);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+}
+
+.nav-tab.active .nav-badge {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: inherit;
+  border-color: currentColor;
+}
+
+/* =====================================================
+   Copy Path Button Styles
+   ===================================================== */
+
+.detail-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copy-path-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: var(--transition-bg);
+}
+
+.copy-path-button:hover {
+  background-color: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.copy-feedback {
+  color: var(--green);
+  font-size: 0.7rem;
+}
+
+/* =====================================================
+   Credential Highlight Styles
+   ===================================================== */
+
+.credential-highlight {
+  background-color: rgba(220, 53, 69, 0.3);
+  color: #ff6b6b;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-weight: 500;
+}
+
+[data-theme="light"] .credential-highlight {
+  background-color: rgba(220, 53, 69, 0.2);
+  color: #dc3545;
+}
+
+/* =====================================================
+   Action Button Styles (for modals)
+   ===================================================== */
+
+.action-button.primary {
+  background-color: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.action-button.primary:hover {
+  background-color: var(--accent-hover);
+}
+
+.action-button.primary:disabled {
+  background-color: var(--bg-overlay);
+  color: var(--text-muted);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+.action-button.small {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+}
+
+.action-button.danger {
+  color: #dc3545;
+}
+
+.action-button.danger:hover {
+  background-color: rgba(220, 53, 69, 0.2);
+}
+
+/* =====================================================
+   Collapsible Section Styles (Shared)
+   ===================================================== */
+
+.collapsible-section {
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+}
+
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background-color: var(--bg-overlay);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.collapsible-header:hover {
+  background-color: var(--bg-surface);
+}
+
+.collapsible-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--text-strong);
+}
+
+.collapsible-title i {
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.collapsible-toggle {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.collapsible-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* =====================================================
+   Risk Score Styles (Detail Panel)
+   ===================================================== */
+
+.risk-score-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.risk-level-badge-compact {
+  padding: 2px 8px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Risk badge text colors - matching rating badge pattern */
+.risk-level-badge-compact.risk-bg-critical {
+  color: var(--bg-base);
+}
+
+.risk-level-badge-compact.risk-bg-high {
+  color: var(--bg-base);
+}
+
+.risk-level-badge-compact.risk-bg-medium {
+  color: var(--color-dark);
+}
+
+.risk-level-badge-compact.risk-bg-low {
+  color: var(--bg-base);
+}
+
+/* Light theme overrides for risk badges */
+[data-theme="light"] .risk-level-badge-compact.risk-bg-critical {
+  color: var(--color-light);
+}
+
+[data-theme="light"] .risk-level-badge-compact.risk-bg-high {
+  color: var(--color-light);
+}
+
+[data-theme="light"] .risk-level-badge-compact.risk-bg-low {
+  color: var(--color-light);
+}
+
+
+.risk-factors-compact {
+  padding: 8px 12px;
+  background-color: var(--bg-surface);
+  border-top: 1px solid var(--border);
+}
+
+.risk-factor-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 0.8rem;
+}
+
+.risk-factor-row .risk-factor-name {
+  color: var(--text);
+  cursor: help;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.risk-factor-info-icon {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.risk-factor-row:hover .risk-factor-info-icon {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.risk-factor-row .risk-factor-points {
+  color: var(--green);
+  font-weight: 600;
+}
+
+/* =====================================================
+   Quick Actions Styles
+   ===================================================== */
+
+.quick-actions-content {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.quick-actions-info {
+  margin-bottom: 12px;
+  padding: 8px;
+  background-color: var(--bg-overlay);
+  border-radius: var(--border-radius);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.quick-actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quick-action-item {
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+}
+
+.quick-action-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background-color: var(--bg-overlay);
+}
+
+.quick-action-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-strong);
+}
+
+.quick-action-name i {
+  width: 16px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.quick-action-copy {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick-action-copy:hover {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.quick-action-copy.copied {
+  background-color: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.quick-action-command {
+  margin: 0;
+  padding: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  background-color: var(--bg-base);
+  color: var(--text);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* =====================================================
+   Dashboard Charts Styles
+   ===================================================== */
+
+.charts-section {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 1200px) {
+  .charts-section {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .charts-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-container {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  padding: 16px;
+}
+
+/* Chart Tooltip */
+.chart-tooltip {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.tooltip-label {
+  font-weight: 600;
+  color: var(--text-strong);
+  margin-bottom: 4px;
+}
+
+.tooltip-value {
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.chart-title {
+  margin: 0 0 4px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.chart-subtitle {
+  margin: 0 0 12px 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.chart-wrapper {
+  margin: 12px 0;
+}
+
+.chart-no-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 150px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+}
+
+.chart-legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.chart-legend-label {
+  color: var(--text-muted);
+}
+
+.chart-legend-value {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.chart-insight {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.chart-insight-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.chart-insight-item.highlight {
+  color: var(--red);
+}
+
+.chart-insight-item.highlight i {
+  color: var(--red);
+}
+
+/* Recharts tooltip customization */
+.recharts-tooltip-wrapper {
+  outline: none;
+}
+
+.recharts-default-tooltip {
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 4px !important;
+}
+
+.recharts-tooltip-label {
+  color: var(--text-strong) !important;
+  font-weight: 600;
+}
+
+.recharts-tooltip-item {
+  color: var(--text) !important;
+}
+
+/* Recharts axis customization */
+.recharts-cartesian-axis-tick-value {
+  fill: var(--text-muted);
+  font-size: 11px;
+}
+
+.recharts-legend-item-text {
+  color: var(--text) !important;
+}
+
+/* Recharts bar hover customization */
+.recharts-bar-rectangle {
+  transition: opacity 0.2s ease;
+}
+
+.recharts-bar-rectangle:hover {
+  opacity: 0.8;
+}
+
+/* Dark theme: reduce brightness of active/hover state */
+[data-theme="dark"] .recharts-active-bar {
+  fill-opacity: 0.7;
+}
+
+[data-theme="dark"] .recharts-rectangle.recharts-tooltip-cursor {
+  fill: rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme="light"] .recharts-rectangle.recharts-tooltip-cursor {
+  fill: rgba(0, 0, 0, 0.05) !important;
 }

@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GPOReport } from '../utils/GPOParser';
+import { formatDateLocale } from '../utils/formatting';
+import { LAYOUT } from '../utils/constants';
 
 interface GPODetailsProps {
   report: GPOReport;
@@ -295,13 +297,11 @@ const GPODetails: React.FC<GPODetailsProps> = ({
     const next = !isLeftPanelMinimized;
     if (next) {
       previousLeftWidthRef.current = leftPanelWidthPx;
-      setLeftPanelWidthPx(50);
+      setLeftPanelWidthPx(LAYOUT.MINIMIZED_PANEL);
     } else {
       const ww = window.innerWidth;
-      const MIN_LEFT = 180;
-      const MIN_CENTER = 480;
-      const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - MIN_CENTER;
-      const restored = Math.max(MIN_LEFT, Math.min(previousLeftWidthRef.current || 300, maxLeft));
+      const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - LAYOUT.MIN_CENTER_PANEL;
+      const restored = Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(previousLeftWidthRef.current || LAYOUT.DEFAULT_LEFT_PANEL, maxLeft));
       setLeftPanelWidthPx(restored);
     }
     setIsLeftPanelMinimized(next);
@@ -324,12 +324,7 @@ const GPODetails: React.FC<GPODetailsProps> = ({
 
   const formatDate = (dateStr: string | undefined) => {
     if (!dateStr) return '-';
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-    } catch {
-      return dateStr;
-    }
+    return formatDateLocale(dateStr);
   };
 
   // Initialize panel sizes from props (no localStorage needed - managed by App.tsx)
@@ -337,18 +332,14 @@ const GPODetails: React.FC<GPODetailsProps> = ({
     const ww = window.innerWidth;
     windowWidthRef.current = ww;
     // Panel widths are already set from props, just ensure they're within bounds
-    const MIN_LEFT = 180;
-    const MIN_RIGHT = 280;
-    const MIN_CENTER = 480;
-    
-    if (leftPanelWidthPx < MIN_LEFT || leftPanelWidthPx > ww - MIN_CENTER) {
-      const maxLeft = Math.max(MIN_LEFT, ww - (showRightPanel ? rightPanelWidthPx : 0) - MIN_CENTER);
-      setLeftPanelWidthPx(Math.max(MIN_LEFT, Math.min(leftPanelWidthPx, maxLeft)));
+    if (leftPanelWidthPx < LAYOUT.MIN_LEFT_PANEL || leftPanelWidthPx > ww - LAYOUT.MIN_CENTER_PANEL) {
+      const maxLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, ww - (showRightPanel ? rightPanelWidthPx : 0) - LAYOUT.MIN_CENTER_PANEL);
+      setLeftPanelWidthPx(Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(leftPanelWidthPx, maxLeft)));
     }
-    
-    if (rightPanelWidthPx < MIN_RIGHT || rightPanelWidthPx > ww - MIN_CENTER) {
-      const maxRight = Math.max(MIN_RIGHT, ww - (isLeftPanelMinimized ? 50 : leftPanelWidthPx) - MIN_CENTER);
-      setRightPanelWidthPx(Math.max(MIN_RIGHT, Math.min(rightPanelWidthPx, maxRight)));
+
+    if (rightPanelWidthPx < LAYOUT.MIN_RIGHT_PANEL || rightPanelWidthPx > ww - LAYOUT.MIN_CENTER_PANEL) {
+      const maxRight = Math.max(LAYOUT.MIN_RIGHT_PANEL, ww - (isLeftPanelMinimized ? LAYOUT.MINIMIZED_PANEL : leftPanelWidthPx) - LAYOUT.MIN_CENTER_PANEL);
+      setRightPanelWidthPx(Math.max(LAYOUT.MIN_RIGHT_PANEL, Math.min(rightPanelWidthPx, maxRight)));
     }
     
     previousLeftWidthRef.current = leftPanelWidthPx;
@@ -359,21 +350,18 @@ const GPODetails: React.FC<GPODetailsProps> = ({
     const onMouseMove = (e: MouseEvent) => {
       if (!draggingSide) return;
       const ww = window.innerWidth;
-      const MIN_LEFT = 180;
-      const MIN_RIGHT = 280;
-      const MIN_CENTER = 480;
       if (draggingSide === 'left') {
         if (isLeftPanelMinimized) return;
         let newLeft = e.clientX;
-        const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - MIN_CENTER;
-        newLeft = Math.max(MIN_LEFT, Math.min(newLeft, maxLeft));
+        const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - LAYOUT.MIN_CENTER_PANEL;
+        newLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(newLeft, maxLeft));
         setLeftPanelWidthPx(newLeft);
         previousLeftWidthRef.current = newLeft;
       } else if (draggingSide === 'right') {
         if (!showRightPanel) return;
         let newRight = ww - e.clientX;
-        const maxRight = ww - (isLeftPanelMinimized ? 50 : leftPanelWidthPx) - MIN_CENTER;
-        newRight = Math.max(MIN_RIGHT, Math.min(newRight, maxRight));
+        const maxRight = ww - (isLeftPanelMinimized ? LAYOUT.MINIMIZED_PANEL : leftPanelWidthPx) - LAYOUT.MIN_CENTER_PANEL;
+        newRight = Math.max(LAYOUT.MIN_RIGHT_PANEL, Math.min(newRight, maxRight));
         setRightPanelWidthPx(newRight);
       }
     };
@@ -391,7 +379,7 @@ const GPODetails: React.FC<GPODetailsProps> = ({
       {/* Left Panel - Filters */}
       <div 
         className={`left-panel ${isLeftPanelMinimized ? 'minimized' : ''}`}
-        style={{ width: isLeftPanelMinimized ? 50 : leftPanelWidthPx }}
+        style={{ width: isLeftPanelMinimized ? LAYOUT.MINIMIZED_PANEL : leftPanelWidthPx }}
       >
         <div className="panel-header">
           <span>Filters</span>

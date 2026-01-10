@@ -9,6 +9,7 @@ import { Dashboard } from './components/Dashboard';
 import { GPODashboard } from './components/GPODashboard';
 import { ShareResults } from './components/ShareResults';
 import { ErrorDisplay } from './components/ErrorDisplay';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { parseSnafflerData, parseShareData } from './utils/parser';
 import { parseGPO, GPOReport } from './utils/GPOParser';
 import GPOResults from './components/GPOResults.tsx';
@@ -21,6 +22,7 @@ import {
   exportGPOToCSV,
   exportGPOToXLSX,
 } from './utils/exporter';
+import { calculateRiskScore } from './utils/riskScoring';
 
 type View = 'dashboard' | 'file-results' | 'share-results' | 'GPO-results' | 'GPO-details';
 
@@ -58,6 +60,7 @@ function App() {
   const [customFilters, setCustomFilters] = useState<CustomFilter[]>([]);
   const [visibleColumns, setVisibleColumns] = useState({
     rating: true,
+    risk: true,
     fullPath: true,
     creationTime: true,
     lastModified: true,
@@ -73,6 +76,9 @@ function App() {
 
   // Credentials filter state
   const [credentialsFilter, setCredentialsFilter] = useState(false);
+
+  // Scripts & Configs filter state
+  const [scriptsConfigsFilter, setScriptsConfigsFilter] = useState(false);
 
   // File extension filter state
   const [fileExtensionFilter, setFileExtensionFilter] = useState<string[]>([]);
@@ -198,6 +204,9 @@ function App() {
 
   // Export dropdown state
   const [showExportDropdown, setShowExportDropdown] = useState(false);
+
+  // Keyboard shortcuts modal state
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
 
   // Refs
   const filtersPanelRef = useRef<HTMLDivElement>(null);
@@ -375,8 +384,14 @@ function App() {
       const parseResult = parseSnafflerData(data, fileType);
       const results = parseResult.results;
       const duplicateStats = parseResult.duplicateStats;
-      
-      setAllResults(results);
+
+      // Calculate risk scores for all results
+      const resultsWithRiskScores = results.map(result => ({
+        ...result,
+        riskScore: calculateRiskScore(result)
+      }));
+
+      setAllResults(resultsWithRiskScores);
       setLoadedFileName(fileName);
       setLoadedFileSize(fileSize || '');
       setCurrentView('dashboard');
@@ -390,11 +405,11 @@ function App() {
       }
       
       const newStats = {
-        total: results.length,
-        red: results.filter((r: FileResult) => r.rating.toLowerCase() === 'red').length,
-        yellow: results.filter((r: FileResult) => r.rating.toLowerCase() === 'yellow').length,
-        green: results.filter((r: FileResult) => r.rating.toLowerCase() === 'green').length,
-        black: results.filter((r: FileResult) => r.rating.toLowerCase() === 'black').length
+        total: resultsWithRiskScores.length,
+        red: resultsWithRiskScores.filter((r: FileResult) => r.rating.toLowerCase() === 'red').length,
+        yellow: resultsWithRiskScores.filter((r: FileResult) => r.rating.toLowerCase() === 'yellow').length,
+        green: resultsWithRiskScores.filter((r: FileResult) => r.rating.toLowerCase() === 'green').length,
+        black: resultsWithRiskScores.filter((r: FileResult) => r.rating.toLowerCase() === 'black').length
       };
       setStats(newStats);
       
@@ -626,8 +641,9 @@ function App() {
   // Handle click outside to close column dropdown and export dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const columnDropdownContainer = document.getElementById('column-dropdown-container');
       const columnDropdown = document.getElementById('column-dropdown');
-      if (columnDropdown && !columnDropdown.contains(event.target as Node)) {
+      if (columnDropdownContainer && columnDropdown && !columnDropdownContainer.contains(event.target as Node)) {
         columnDropdown.classList.remove('show');
       }
       
@@ -649,11 +665,31 @@ function App() {
       // Only handle shortcuts when not typing in input fields
       const activeElement = document.activeElement;
       const isTyping = activeElement && (
-        activeElement.tagName === 'INPUT' || 
-        activeElement.tagName === 'TEXTAREA' || 
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
         (activeElement as HTMLElement).contentEditable === 'true'
       );
-      
+
+      // ? key to show keyboard shortcuts (works even when typing)
+      if (event.key === '?' && !event.ctrlKey && !event.altKey && !event.metaKey) {
+        // Only show if shift is pressed (Shift+/) = ?
+        event.preventDefault();
+        setShowKeyboardShortcuts(prev => !prev);
+        return;
+      }
+
+      // Escape to close panels/modals
+      if (event.key === 'Escape') {
+        if (showKeyboardShortcuts) {
+          setShowKeyboardShortcuts(false);
+          return;
+        }
+        if (showRightPanel) {
+          handleCloseRightPanel();
+          return;
+        }
+      }
+
       if (isTyping) return;
 
       // F key to toggle false positive
@@ -661,13 +697,22 @@ function App() {
         event.preventDefault();
         handleToggleFalsePositive(selectedResult);
       }
+
+      // / key to focus search input
+      if (event.key === '/' && currentView === 'file-results') {
+        event.preventDefault();
+        const searchInput = document.getElementById('search-filter');
+        if (searchInput) {
+          searchInput.focus();
+        }
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedResult]);
+  }, [selectedResult, showKeyboardShortcuts, showRightPanel, currentView]);
 
   const handleToggleLeftPanel = () => {
     setIsLeftPanelMinimized(prev => {
@@ -867,12 +912,21 @@ function App() {
         ].join(' ').toLowerCase();
         
         // Check if any keyword appears in the actual content
-        return CREDENTIALS_KEYWORDS.some(keyword => 
+        return CREDENTIALS_KEYWORDS.some(keyword =>
           searchText.includes(keyword.toLowerCase())
         );
       });
     }
-    
+
+    // Apply scripts & configs filter
+    if (scriptsConfigsFilter) {
+      const scriptExtensions = ['ps1', 'bat', 'cmd', 'vbs', 'js', 'config', 'xml', 'ini', 'conf', 'yaml', 'yml', 'json'];
+      filtered = filtered.filter(result => {
+        const ext = result.fileName.split('.').pop()?.toLowerCase() || '';
+        return scriptExtensions.includes(ext);
+      });
+    }
+
     // Apply custom filters
     if (stableCustomFilters.length > 0) {
       filtered = filtered.filter(result => {
@@ -894,12 +948,16 @@ function App() {
     const sortedResults = [...filtered].sort((a, b) => {
       let aValue: any = a[sortField];
       let bValue: any = b[sortField];
-      
+
       if (sortField === 'rating') {
           // Handle rating sorting with proper severity order (Black > Red > Yellow > Green)
         const ratingOrder: Record<string, number> = { 'Black': 4, 'Red': 3, 'Yellow': 2, 'Green': 1 };
         aValue = ratingOrder[aValue] || 0;
         bValue = ratingOrder[bValue] || 0;
+      } else if (sortField === 'riskScore') {
+        // Sort by risk score total
+        aValue = a.riskScore?.total || 0;
+        bValue = b.riskScore?.total || 0;
       } else if (sortField === 'size') {
         aValue = parseInt(aValue) || 0;
         bValue = parseInt(bValue) || 0;
@@ -936,10 +994,10 @@ function App() {
     });
     
     setFilteredResults([...sortedResults]);
-    
+
     // Reset to first page when filters change
     setCurrentPage(1);
-  }, [allResults, ratingFilter, searchFilter, fileExtensionFilter, credentialsFilter, stableCustomFilters, sortField, sortDirection]);
+  }, [allResults, ratingFilter, searchFilter, fileExtensionFilter, credentialsFilter, scriptsConfigsFilter, stableCustomFilters, sortField, sortDirection]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredResults.length / pageSize);
@@ -1017,11 +1075,10 @@ function App() {
             {GPOReport ? (
               <GPODashboard report={GPOReport} />
             ) : (
-              <Dashboard 
-                stats={stats} 
-                allResults={allResults} 
+              <Dashboard
+                stats={stats}
+                allResults={allResults}
                 shareResults={shareResults}
-                credentialsKeywords={CREDENTIALS_KEYWORDS}
                 onNavigateToResults={handleNavigateToResults}
                 onFilterBySystem={handleFilterBySystem}
                 onFilterByShare={handleFilterByShare}
@@ -1055,6 +1112,7 @@ function App() {
                   sortDirection={sortDirection}
                   customFilters={stableCustomFilters}
                   credentialsFilter={credentialsFilter}
+                  scriptsConfigsFilter={scriptsConfigsFilter}
                   onRatingFilterChange={setRatingFilter}
                   onSearchFilterChange={setSearchFilter}
                   onFileExtensionFilterChange={setFileExtensionFilter}
@@ -1062,6 +1120,7 @@ function App() {
                   onSortDirectionChange={setSortDirection}
                   onCustomFiltersChange={setCustomFilters}
                   onCredentialsFilterChange={setCredentialsFilter}
+                  onScriptsConfigsFilterChange={setScriptsConfigsFilter}
                   stats={stats}
                   isMinimized={isLeftPanelMinimized}
                 />
@@ -1099,8 +1158,8 @@ function App() {
                       </div>
                     </div>
                     <div className="table-controls">
-                      <div className="column-visibility-dropdown">
-                        <button 
+                      <div id="column-dropdown-container" className="column-visibility-dropdown">
+                        <button
                           className="column-visibility-button"
                           onClick={() => {
                             const dropdown = document.getElementById('column-dropdown');
@@ -1124,6 +1183,19 @@ function App() {
                                 }))}
                               />
                               Rating
+                            </label>
+                          </div>
+                          <div className="column-dropdown-item">
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={visibleColumns.risk}
+                                onChange={(e) => setVisibleColumns(prev => ({
+                                  ...prev,
+                                  risk: e.target.checked
+                                }))}
+                              />
+                              Risk
                             </label>
                           </div>
                           <div className="column-dropdown-item">
@@ -1457,15 +1529,28 @@ function App() {
         </div>
       ) : (
         <>
-          <Navigation 
+          <Navigation
             currentView={currentView}
             onViewChange={setCurrentView}
             hasShareData={allResults.length > 0}
             hasGPOData={!!GPOReport}
+            counts={{
+              files: allResults.length,
+              filteredFiles: filteredResults.length,
+              shares: shareResults.length,
+              gpoSettings: GPOReport?.gpos.reduce((total, gpo) => total + gpo.settings.length, 0) || 0,
+              gpoCount: GPOReport?.gpos.length || 0
+            }}
           />
           {renderCurrentView()}
         </>
       )}
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal
+        isOpen={showKeyboardShortcuts}
+        onClose={() => setShowKeyboardShortcuts(false)}
+      />
     </div>
   );
 }
