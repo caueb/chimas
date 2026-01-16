@@ -51,7 +51,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!selectedResult || results.length === 0) return;
 
-      const currentIndex = results.findIndex(result => result === selectedResult);
+      // Use property-based comparison to find selected row (matches visual selection logic)
+      const selectedKey = `${selectedResult.fullPath}-${selectedResult.fileName}-${selectedResult.rating}-${selectedResult.size}-${selectedResult.creationTime}-${selectedResult.lastModified}-${(selectedResult.matchContext || '').substring(0, 50)}-${selectedResult.ruleName}`;
+      const currentIndex = results.findIndex(result => {
+        const resultKey = `${result.fullPath}-${result.fileName}-${result.rating}-${result.size}-${result.creationTime}-${result.lastModified}-${(result.matchContext || '').substring(0, 50)}-${result.ruleName}`;
+        return resultKey === selectedKey;
+      });
       if (currentIndex === -1) return;
 
       let newIndex = currentIndex;

@@ -352,6 +352,32 @@ body {
   border-color: var(--accent);
 }
 
+/* Shared Button: Ghost variant */
+.ghost-button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  transition: color 0.2s ease;
+}
+
+.ghost-button:hover {
+  color: var(--accent);
+}
+
+.ghost-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Shared Button: Size variants */
+.button-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
 .landing-page {
   flex: 1;
   display: flex;
@@ -573,7 +599,8 @@ body {
   transform: translateX(100%);
 }
 
-/* Resizers */
+/* Unified resizers - applies to all panel edges in all views */
+/* Used via usePanelLayout hook which provides consistent resize behavior */
 .resizer {
   position: fixed;
   top: var(--header-nav-total);
@@ -581,6 +608,7 @@ body {
   width: 6px;
   z-index: 60;
   background: transparent;
+  transition: background 0.15s ease;
 }
 
 .resizer:hover {
@@ -606,8 +634,9 @@ body {
   display: none;
 }
 
+/* Unified panel header - applies to all panels (left filters, right details) in all views */
 .panel-header {
-  padding: 0.75rem;
+  padding: 0.75rem 1rem;
   background-color: var(--bg-overlay);
   border-bottom: 1px solid var(--border);
   font-weight: 600;
@@ -641,6 +670,7 @@ body {
   color: var(--text-strong);
 }
 
+/* Unified panel content spacing - applies to all panels in all views */
 .panel-content {
   flex: 1;
   padding: 1rem;
@@ -660,6 +690,7 @@ body {
   height: 100%;
 }
 
+/* Unified table header bar spacing - applies to all tables in all views */
 .table-header {
   display: flex;
   justify-content: space-between;
@@ -716,6 +747,15 @@ body {
   pointer-events: none;
   z-index: 1;
   font-size: 0.875rem;
+}
+
+/* No icon variant - removes search icon and adjusts padding */
+.search-input-wrapper.no-icon::before {
+  display: none;
+}
+
+.search-input-wrapper.no-icon input {
+  padding-left: 0.75rem;
 }
 
 /* Search input with content - white bold text and blue border */
@@ -1053,6 +1093,12 @@ td.size-cell {
   min-width: 60px;
 }
 
+/* Unified table row states - applies to all tables (File Results, GPO Results, GPO Details) */
+tbody tr {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
 tr:hover {
   background-color: var(--bg-overlay);
 }
@@ -1172,6 +1218,7 @@ tr.selected:hover td {
   letter-spacing: 0.5px;
 }
 
+/* Unified filter section spacing - applies to all filter panels in all views */
 .filter-section {
   margin-bottom: 1rem;
 }
@@ -3275,18 +3322,9 @@ tr.selected:hover td {
   text-align: center;
 }
 
-/* GPO Details table sticky header */
-.gpo-details-table thead th {
-  position: sticky;
-  top: 0;
-  background-color: var(--bg-overlay);
-  z-index: 10;
-  border-bottom: 2px solid var(--border);
-}
-
-.gpo-details-table thead th:hover {
-  background-color: var(--bg-overlay);
-}
+/* GPO Details table sticky header - unified with File Results */
+/* Note: Sticky positioning, background, and z-index inherit from base th styles (lines 996-1012) */
+/* Column widths and text-align are the only GPO-specific overrides needed */
 
 /* GPO Details link list styling */
 .link-list {
@@ -4400,4 +4438,212 @@ td.risk-cell {
 
 [data-theme="light"] .recharts-rectangle.recharts-tooltip-cursor {
   fill: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* ============================================
+   Spinner Component Styles
+   ============================================ */
+
+.spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.spinner-circle {
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spinner-rotate 0.8s linear infinite;
+}
+
+/* Size variants */
+.spinner-small .spinner-circle {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
+}
+
+.spinner-medium .spinner-circle {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+.spinner-large .spinner-circle {
+  width: 48px;
+  height: 48px;
+  border-width: 4px;
+}
+
+.spinner-label {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.spinner-small .spinner-label {
+  font-size: 0.75rem;
+}
+
+.spinner-large .spinner-label {
+  font-size: 1rem;
+}
+
+@keyframes spinner-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Spinner overlay for full-screen loading */
+.spinner-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.spinner-overlay .spinner-circle {
+  border-top-color: var(--accent);
+}
+
+.spinner-overlay .spinner-label {
+  color: var(--color-white);
+}
+
+/* ============================================
+   Toast Notification Styles
+   ============================================ */
+
+.toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 0px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 280px;
+  max-width: 400px;
+  pointer-events: auto;
+  cursor: pointer;
+  animation: toast-slide-in 0.3s ease-out;
+}
+
+.toast:hover {
+  background-color: var(--bg-overlay);
+}
+
+/* Toast type variants */
+.toast-success {
+  border-left-color: var(--green);
+}
+
+.toast-success .toast-icon {
+  color: var(--green);
+}
+
+.toast-info {
+  border-left-color: var(--accent);
+}
+
+.toast-info .toast-icon {
+  color: var(--accent);
+}
+
+.toast-error {
+  border-left-color: var(--red);
+}
+
+.toast-error .toast-icon {
+  color: var(--red);
+}
+
+.toast-icon {
+  font-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.toast-message {
+  flex: 1;
+  font-size: 0.875rem;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  font-size: 0.875rem;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.toast-close:hover {
+  opacity: 1;
+  color: var(--text);
+}
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   Filter Active Indication
+   ============================================ */
+
+.results-count.filters-active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.results-count-pulse {
+  animation: results-count-pulse 0.5s ease-out;
+}
+
+@keyframes results-count-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
 }

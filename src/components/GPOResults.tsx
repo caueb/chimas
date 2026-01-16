@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { GPOReport } from '../utils/GPOParser';
 import { exportGPOToCSV, exportGPOToXLSX } from '../utils/exporter';
+import { usePanelLayout, Button, Input, Dropdown, DropdownOption } from './shared';
 import { LAYOUT } from '../utils/constants';
 
 interface GPOResultsProps {
@@ -23,17 +24,11 @@ interface GPOResultsProps {
 	setSelectedIndex: (index: number | null) => void;
 	showExportDropdown: boolean;
 	setShowExportDropdown: (show: boolean) => void;
-	isLeftPanelMinimized: boolean;
-	setIsLeftPanelMinimized: (minimized: boolean) => void;
-	leftPanelWidthPx: number;
-	setLeftPanelWidthPx: (width: number) => void;
-	rightPanelWidthPx: number;
-	setRightPanelWidthPx: (width: number) => void;
 	scrollTop: number;
 	setScrollTop: (scrollTop: number) => void;
 }
 
-const GPOResults: React.FC<GPOResultsProps> = ({ 
+const GPOResults: React.FC<GPOResultsProps> = ({
 	report,
 	search,
 	setSearch,
@@ -53,44 +48,26 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 	setSelectedIndex,
 	showExportDropdown,
 	setShowExportDropdown,
-	isLeftPanelMinimized,
-	setIsLeftPanelMinimized,
-	leftPanelWidthPx,
-	setLeftPanelWidthPx,
-	rightPanelWidthPx,
-	setRightPanelWidthPx,
 	scrollTop,
 	setScrollTop
 }) => {
 
-	// Panel sizing and persistence
-	const [draggingSide, setDraggingSide] = useState<'left' | 'right' | null>(null);
-	const previousLeftWidthRef = useRef<number>(300);
-	const windowWidthRef = useRef<number>(typeof window !== 'undefined' ? window.innerWidth : 1440);
-	const leftResizerRef = useRef<HTMLDivElement>(null);
-	const rightResizerRef = useRef<HTMLDivElement>(null);
+	// Panel layout using shared hook (replaces inline panel sizing logic)
+	const [panelState, panelActions] = usePanelLayout({ storageKeyPrefix: 'layout:gpo' });
+	const { leftPanelWidthPx, rightPanelWidthPx, isLeftPanelMinimized, draggingSide } = panelState;
+	const { toggleLeftPanel, startDragging } = panelActions;
+
 	const tableRef = useRef<HTMLTableElement>(null);
 	const tableWrapperRef = useRef<HTMLDivElement>(null);
 
-	// Dropdown states
-	const [scopeDropdownOpen, setScopeDropdownOpen] = useState(false);
-	const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
-
 	const showRightPanel = selectedIndex !== null;
 
-	// Handle click outside to close dropdowns
+	// Handle click outside to close export dropdown
 	useEffect(() => {
 		const handleClickOutside = (event: MouseEvent) => {
 			const exportDropdown = document.getElementById('gpo-export-dropdown');
 			if (exportDropdown && !exportDropdown.contains(event.target as Node)) {
 				setShowExportDropdown(false);
-			}
-			
-			// Close filter dropdowns when clicking outside
-			const target = event.target as Element;
-			if (!target.closest('.unified-dropdown')) {
-				setScopeDropdownOpen(false);
-				setCategoryDropdownOpen(false);
 			}
 		};
 
@@ -121,129 +98,6 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 			tableWrapper.removeEventListener('scroll', handleScroll);
 		};
 	}, [setScrollTop]);
-
-
-
-	const getStoredPct = (key: string, fallback: number) => {
-		try {
-			const raw = localStorage.getItem(key);
-			if (!raw) return fallback;
-			const num = parseFloat(raw);
-			return isNaN(num) ? fallback : num;
-		} catch {
-			return fallback;
-		}
-	};
-
-	const setStoredPct = (key: string, value: number) => {
-		try {
-			localStorage.setItem(key, String(value));
-		} catch {}
-	};
-
-	// Initialize from storage
-	useEffect(() => {
-		const ww = window.innerWidth;
-		windowWidthRef.current = ww;
-		const storedLeftPct = getStoredPct('layout:gpo:leftPct', LAYOUT.DEFAULT_LEFT_PANEL / ww);
-		const storedRightPct = getStoredPct('layout:gpo:rightPct', LAYOUT.DEFAULT_RIGHT_PANEL / ww);
-		const computedRight = Math.round(storedRightPct * ww);
-		const maxLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, ww - (showRightPanel ? computedRight : 0) - LAYOUT.MIN_CENTER_PANEL);
-		const newLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(Math.round(storedLeftPct * ww), maxLeft));
-		const maxRight = Math.max(LAYOUT.MIN_RIGHT_PANEL, ww - newLeft - LAYOUT.MIN_CENTER_PANEL);
-		const newRight = Math.max(LAYOUT.MIN_RIGHT_PANEL, Math.min(computedRight, maxRight));
-		setLeftPanelWidthPx(newLeft);
-		setRightPanelWidthPx(newRight);
-		previousLeftWidthRef.current = Math.max(LAYOUT.MIN_LEFT_PANEL, Math.round(storedLeftPct * ww));
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
-
-	// Recompute on window resize
-	useEffect(() => {
-		const onResize = () => {
-			const ww = window.innerWidth;
-			const leftPct = leftPanelWidthPx / windowWidthRef.current;
-			const rightPct = rightPanelWidthPx / windowWidthRef.current;
-			windowWidthRef.current = ww;
-			const computedLeft = Math.round(leftPct * ww);
-			const computedRight = Math.round(rightPct * ww);
-			const maxLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, ww - (showRightPanel ? computedRight : 0) - LAYOUT.MIN_CENTER_PANEL);
-			setLeftPanelWidthPx(Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(computedLeft, maxLeft)));
-			if (showRightPanel) {
-				const maxRight = Math.max(LAYOUT.MIN_RIGHT_PANEL, ww - (isLeftPanelMinimized ? LAYOUT.MINIMIZED_PANEL : leftPanelWidthPx) - LAYOUT.MIN_CENTER_PANEL);
-				setRightPanelWidthPx(Math.max(LAYOUT.MIN_RIGHT_PANEL, Math.min(computedRight, maxRight)));
-			}
-		};
-		window.addEventListener('resize', onResize);
-		return () => window.removeEventListener('resize', onResize);
-	}, [leftPanelWidthPx, rightPanelWidthPx, showRightPanel, isLeftPanelMinimized]);
-
-	// Persist proportions
-	useEffect(() => {
-		const ww = windowWidthRef.current || window.innerWidth;
-		if (ww > 0) setStoredPct('layout:gpo:leftPct', leftPanelWidthPx / ww);
-	}, [leftPanelWidthPx]);
-	useEffect(() => {
-		const ww = windowWidthRef.current || window.innerWidth;
-		if (ww > 0) setStoredPct('layout:gpo:rightPct', rightPanelWidthPx / ww);
-	}, [rightPanelWidthPx]);
-
-	// Drag handling
-	useEffect(() => {
-		const onMouseMove = (e: MouseEvent) => {
-			if (!draggingSide) return;
-			const ww = window.innerWidth;
-			if (draggingSide === 'left') {
-				if (isLeftPanelMinimized) return;
-				let newLeft = e.clientX;
-				const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - LAYOUT.MIN_CENTER_PANEL;
-				newLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(newLeft, maxLeft));
-				setLeftPanelWidthPx(newLeft);
-				previousLeftWidthRef.current = newLeft;
-			} else if (draggingSide === 'right') {
-				if (!showRightPanel) return;
-				let newRight = ww - e.clientX;
-				const maxRight = ww - (isLeftPanelMinimized ? LAYOUT.MINIMIZED_PANEL : leftPanelWidthPx) - LAYOUT.MIN_CENTER_PANEL;
-				newRight = Math.max(LAYOUT.MIN_RIGHT_PANEL, Math.min(newRight, maxRight));
-				setRightPanelWidthPx(newRight);
-			}
-		};
-		const onMouseUp = () => { if (draggingSide) setDraggingSide(null); };
-		document.addEventListener('mousemove', onMouseMove);
-		document.addEventListener('mouseup', onMouseUp);
-		return () => {
-			document.removeEventListener('mousemove', onMouseMove);
-			document.removeEventListener('mouseup', onMouseUp);
-		};
-	}, [draggingSide, isLeftPanelMinimized, leftPanelWidthPx, rightPanelWidthPx, showRightPanel]);
-
-	// Clamp when right panel visibility changes
-	useEffect(() => {
-		const ww = window.innerWidth;
-		if (showRightPanel) {
-			const maxLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, ww - rightPanelWidthPx - LAYOUT.MIN_CENTER_PANEL);
-			setLeftPanelWidthPx(Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(leftPanelWidthPx, maxLeft)));
-			const maxRight = Math.max(LAYOUT.MIN_RIGHT_PANEL, ww - (isLeftPanelMinimized ? LAYOUT.MINIMIZED_PANEL : leftPanelWidthPx) - LAYOUT.MIN_CENTER_PANEL);
-			setRightPanelWidthPx(Math.max(LAYOUT.MIN_RIGHT_PANEL, Math.min(rightPanelWidthPx, maxRight)));
-		} else {
-			const maxLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, ww - LAYOUT.MIN_CENTER_PANEL);
-			setLeftPanelWidthPx(Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(leftPanelWidthPx, maxLeft)));
-		}
-	}, [showRightPanel, isLeftPanelMinimized, leftPanelWidthPx, rightPanelWidthPx]);
-
-	const handleToggleLeftPanel = () => {
-		const next = !isLeftPanelMinimized;
-		if (next) {
-			previousLeftWidthRef.current = leftPanelWidthPx;
-			setLeftPanelWidthPx(LAYOUT.MINIMIZED_PANEL);
-		} else {
-			const ww = window.innerWidth;
-			const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - LAYOUT.MIN_CENTER_PANEL;
-			const restored = Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(previousLeftWidthRef.current || LAYOUT.DEFAULT_LEFT_PANEL, maxLeft));
-			setLeftPanelWidthPx(restored);
-		}
-		setIsLeftPanelMinimized(next);
-	};
 
 	const { scopes, categories } = useMemo(() => {
 		const scopeSet = new Set<string>();
@@ -431,82 +285,32 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 			>
 				<div className="panel-header">
 					<span>Filters</span>
-					<button className="minimize-button" onClick={handleToggleLeftPanel}>
+					<Button variant="ghost" className="minimize-button" onClick={toggleLeftPanel}>
 						<i className={`fas fa-chevron-${isLeftPanelMinimized ? 'right' : 'left'}`}></i>
-					</button>
+					</Button>
 				</div>
 				<div className="panel-content">
 					<div className="filter-section">
 						<label>Scope</label>
-						<div className="unified-dropdown">
-							<button 
-								className="unified-dropdown-button" 
-								onClick={() => setScopeDropdownOpen(!scopeDropdownOpen)}
-							>
-								<span>{scopeFilter === 'all' ? 'All' : scopeFilter}</span>
-								<span className="unified-dropdown-arrow">
-									<i className="fas fa-chevron-down"></i>
-								</span>
-							</button>
-							{scopeDropdownOpen && (
-								<div className="unified-dropdown-menu show">
-									<div className="unified-dropdown-item">
-										<button 
-											onClick={() => { setScopeFilter('all'); setCurrentPage(1); setScopeDropdownOpen(false); }} 
-											className={scopeFilter === 'all' ? 'selected' : ''}
-										>
-											All
-										</button>
-									</div>
-									{scopes.map(s => (
-										<div key={s} className="unified-dropdown-item">
-											<button 
-												onClick={() => { setScopeFilter(s); setCurrentPage(1); setScopeDropdownOpen(false); }} 
-												className={scopeFilter === s ? 'selected' : ''}
-											>
-												{s}
-											</button>
-										</div>
-									))}
-								</div>
-							)}
-						</div>
+						<Dropdown
+							value={scopeFilter}
+							onChange={(value) => { setScopeFilter(value); setCurrentPage(1); }}
+							options={[
+								{ value: 'all', label: 'All' },
+								...scopes.map(s => ({ value: s, label: s }))
+							]}
+						/>
 					</div>
 					<div className="filter-section">
 						<label>Category</label>
-						<div className="unified-dropdown">
-							<button 
-								className="unified-dropdown-button" 
-								onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
-							>
-								<span>{categoryFilter === 'all' ? 'All' : categoryFilter}</span>
-								<span className="unified-dropdown-arrow">
-									<i className="fas fa-chevron-down"></i>
-								</span>
-							</button>
-							{categoryDropdownOpen && (
-								<div className="unified-dropdown-menu show">
-									<div className="unified-dropdown-item">
-										<button 
-											onClick={() => { setCategoryFilter('all'); setCurrentPage(1); setCategoryDropdownOpen(false); }} 
-											className={categoryFilter === 'all' ? 'selected' : ''}
-										>
-											All
-										</button>
-									</div>
-									{categories.map(c => (
-										<div key={c} className="unified-dropdown-item">
-											<button 
-												onClick={() => { setCategoryFilter(c); setCurrentPage(1); setCategoryDropdownOpen(false); }} 
-												className={categoryFilter === c ? 'selected' : ''}
-											>
-												{c}
-											</button>
-										</div>
-									))}
-								</div>
-							)}
-						</div>
+						<Dropdown
+							value={categoryFilter}
+							onChange={(value) => { setCategoryFilter(value); setCurrentPage(1); }}
+							options={[
+								{ value: 'all', label: 'All' },
+								...categories.map(c => ({ value: c, label: c }))
+							]}
+						/>
 					</div>
 				</div>
 			</div>
@@ -518,26 +322,13 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 				<div className="table-container">
 					<div className="table-header">
 						<div className="table-header-content">
-							<div className="search-container">
-								<div className="search-input-wrapper">
-									<input
-										id="gpo-search"
-										type="text"
-										placeholder="Search GPO name, scope, category, entries, findings..."
-										value={search}
-										onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-									/>
-									{search && (
-										<button
-											className="search-clear-button"
-											onClick={() => setSearch('')}
-											type="button"
-										>
-											×
-										</button>
-									)}
-								</div>
-							</div>
+							<Input
+								id="gpo-search"
+								value={search}
+								onChange={(value) => { setSearch(value); setCurrentPage(1); }}
+								placeholder="Search GPO name, scope, category, entries, findings..."
+								clearable
+							/>
 							<div className="table-controls">
 								<div className="export-dropdown-container">
 									<button 
@@ -639,10 +430,10 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 								</select>
 							</div>
 							<div className="pagination-buttons">
-								<button className={`pagination-button ${currentPage === 1 ? 'disabled' : ''}`} disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>{'<<'}</button>
-								<button className={`pagination-button ${currentPage === 1 ? 'disabled' : ''}`} disabled={currentPage === 1} onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}>{'<'}</button>
-								<button className={`pagination-button ${currentPage === totalPages ? 'disabled' : ''}`} disabled={currentPage === totalPages} onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}>{'>'}</button>
-								<button className={`pagination-button ${currentPage === totalPages ? 'disabled' : ''}`} disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)}>{'>>'}</button>
+								<Button variant="pagination" disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>{'<<'}</Button>
+								<Button variant="pagination" disabled={currentPage === 1} onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}>{'<'}</Button>
+								<Button variant="pagination" disabled={currentPage === totalPages} onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}>{'>'}</Button>
+								<Button variant="pagination" disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)}>{'>>'}</Button>
 							</div>
 						</div>
 					</div>
@@ -654,7 +445,7 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 			>
 				<div className="panel-header">
 					<span>Details</span>
-					<button className="close-button" onClick={() => setSelectedIndex(null)}>×</button>
+					<Button variant="ghost" className="close-button" onClick={() => setSelectedIndex(null)}>×</Button>
 				</div>
 				<div className="panel-content">
 					{selectedIndex !== null ? (() => {
@@ -728,17 +519,15 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 			</div>
 
 			{/* Resizers */}
-			<div 
-				ref={leftResizerRef}
+			<div
 				className={`resizer resizer-left ${isLeftPanelMinimized ? 'hidden' : ''} ${draggingSide === 'left' ? 'dragging' : ''}`}
 				style={{ left: isLeftPanelMinimized ? 50 : leftPanelWidthPx }}
-				onMouseDown={(e) => { e.preventDefault(); setDraggingSide('left'); }}
+				onMouseDown={(e) => { e.preventDefault(); startDragging('left'); }}
 			/>
-			<div 
-				ref={rightResizerRef}
+			<div
 				className={`resizer resizer-right ${showRightPanel ? '' : 'hidden'} ${draggingSide === 'right' ? 'dragging' : ''}`}
 				style={{ right: rightPanelWidthPx }}
-				onMouseDown={(e) => { e.preventDefault(); setDraggingSide('right'); }}
+				onMouseDown={(e) => { e.preventDefault(); startDragging('right'); }}
 			/>
 		</div>
 	);

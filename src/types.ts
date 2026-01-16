@@ -2,7 +2,7 @@ export interface SnafflerEntry {
   time: string;
   level: string;
   message: string;
-  eventProperties: any;
+  eventProperties: Record<string, unknown>;
 }
 
 export interface SnafflerJsonData {
@@ -96,4 +96,27 @@ export interface VisibleColumns {
 
 // GPO sort field types
 export type GPODetailsSortField = 'gpo' | 'settingsCount' | 'linked';
-export type GPOResultsSortField = 'gpo' | 'scope' | 'category' | 'entries' | 'findings' | 'severity'; 
+export type GPOResultsSortField = 'gpo' | 'scope' | 'category' | 'entries' | 'findings' | 'severity';
+
+// GPO sorting value union type
+export type GPOSortValue = string | number | boolean | string[] | undefined;
+
+// Re-export GPO types from GPOParser for convenience
+export type { Gpo, GPOReport, GpoHeader, SettingBlock, Finding } from './utils/GPOParser';
+
+// Share info type for processed share data
+export interface ShareInfo {
+  systemId: string;
+  shareName: string;
+  path: string;
+  permissions: string;
+  fileCount: number;
+  shareComment: string;
+  listable: boolean;
+  rootReadable: boolean;
+  rootWritable: boolean;
+  rootModifyable: boolean;
+  snaffle: boolean;
+  scanShare: boolean;
+  rating: string;
+}

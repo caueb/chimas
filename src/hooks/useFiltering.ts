@@ -11,6 +11,7 @@ interface FilterState {
   searchFilter: string;
   fileExtensionFilter: string[];
   credentialsFilter: boolean;
+  scriptsConfigsFilter: boolean;
   customFilters: CustomFilter[];
   sortField: SortField;
   sortDirection: SortDirection;
@@ -23,6 +24,7 @@ interface UseFilteringResult {
   setSearchFilter: (search: string) => void;
   setFileExtensionFilter: (extensions: string[]) => void;
   setCredentialsFilter: (enabled: boolean) => void;
+  setScriptsConfigsFilter: (enabled: boolean) => void;
   setCustomFilters: (
     filters: CustomFilter[] | ((prev: CustomFilter[]) => CustomFilter[])
   ) => void;
@@ -37,6 +39,7 @@ const initialFilterState: FilterState = {
   searchFilter: '',
   fileExtensionFilter: [],
   credentialsFilter: false,
+  scriptsConfigsFilter: false,
   customFilters: [],
   sortField: 'rating',
   sortDirection: 'desc',
@@ -100,6 +103,15 @@ export function useFiltering({
       filtered = applyCredentialsFilter(filtered);
     }
 
+    // Apply scripts & configs filter
+    if (filters.scriptsConfigsFilter) {
+      const scriptExtensions = ['ps1', 'bat', 'cmd', 'vbs', 'js', 'config', 'xml', 'ini', 'conf', 'yaml', 'yml', 'json'];
+      filtered = filtered.filter((result) => {
+        const ext = result.fileName.split('.').pop()?.toLowerCase() || '';
+        return scriptExtensions.includes(ext);
+      });
+    }
+
     // Apply custom filters (exclusions)
     if (filters.customFilters.length > 0) {
       filtered = filtered.filter((result) => {
@@ -120,12 +132,15 @@ export function useFiltering({
 
     // Sort results
     const sortedResults = [...filtered].sort((a, b) => {
-      let aValue: string | number = a[filters.sortField];
-      let bValue: string | number = b[filters.sortField];
+      let aValue: string | number = a[filters.sortField] as string | number;
+      let bValue: string | number = b[filters.sortField] as string | number;
 
       if (filters.sortField === 'rating') {
         aValue = RATING_ORDER[aValue] || 0;
         bValue = RATING_ORDER[bValue] || 0;
+      } else if (filters.sortField === 'riskScore') {
+        aValue = a.riskScore?.total || 0;
+        bValue = b.riskScore?.total || 0;
       } else if (filters.sortField === 'size') {
         aValue = parseInt(String(aValue)) || 0;
         bValue = parseInt(String(bValue)) || 0;
@@ -179,6 +194,10 @@ export function useFiltering({
     setFilters((prev) => ({ ...prev, credentialsFilter: enabled }));
   }, []);
 
+  const setScriptsConfigsFilter = useCallback((enabled: boolean) => {
+    setFilters((prev) => ({ ...prev, scriptsConfigsFilter: enabled }));
+  }, []);
+
   const setCustomFilters = useCallback(
     (
       customFilters: CustomFilter[] | ((prev: CustomFilter[]) => CustomFilter[])
@@ -225,6 +244,7 @@ export function useFiltering({
     setSearchFilter,
     setFileExtensionFilter,
     setCredentialsFilter,
+    setScriptsConfigsFilter,
     setCustomFilters,
     setSortField,
     setSortDirection,

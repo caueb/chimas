@@ -1,9 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { FileResult, SortField, SortDirection, CustomFilter } from './types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FileResult, SortField, SortDirection, CustomFilter, SnafflerJsonData, ShareInfo } from './types';
 import { FileUpload } from './components/FileUpload';
-import { ResultsTable } from './components/ResultsTable';
-import { DetailPanel } from './components/DetailPanel';
-import { Filters } from './components/Filters';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/Dashboard';
 import { GPODashboard } from './components/GPODashboard';
@@ -11,9 +8,10 @@ import { ShareResults } from './components/ShareResults';
 import { ErrorDisplay } from './components/ErrorDisplay';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { parseSnafflerData, parseShareData } from './utils/parser';
-import { parseGPO, GPOReport } from './utils/GPOParser';
+import { parseGPO } from './utils/GPOParser';
 import GPOResults from './components/GPOResults.tsx';
 import GPODetails from './components/GPODetails.tsx';
+import { FileResultsView } from './components/FileResultsView';
 import {
   exportFileResultsToCSV,
   exportFileResultsToXLSX,
@@ -23,41 +21,71 @@ import {
   exportGPOToXLSX,
 } from './utils/exporter';
 import { calculateRiskScore } from './utils/riskScoring';
+import { usePanelLayout, Spinner, Toast, showToast } from './components/shared';
+import { useFileResultsState, useGPOState, useFiltering } from './hooks';
 
 type View = 'dashboard' | 'file-results' | 'share-results' | 'GPO-results' | 'GPO-details';
 
-// Credentials keywords for filtering - moved outside component to prevent recreation
-const CREDENTIALS_KEYWORDS = [
-  'password', 'pass', 'p@ss', 'pwd', 'p@$$w0rd', 'passwd', 'passcode', 'passphrase',
-  'credentials', 'creds', '$cred', 'cred', 'login', 'authtoken', 'accesskey', 'apikey',
-  'secret', 'secrettoken', 'securestring', '-asstring', 'vaultpass', 'rootpass',
-  'adminpass', 'dbpass', 'dbuser', 'dbadmin', 'dbcred', 'authpass', 'masterkey', 'clientsecret'
-];
-
 function App() {
-  const [allResults, setAllResults] = useState<FileResult[]>([]);
-  const [filteredResults, setFilteredResults] = useState<FileResult[]>([]);
-  const [selectedResult, setSelectedResult] = useState<FileResult | null>(null);
-  const [showRightPanel, setShowRightPanel] = useState(false);
-  const [isLeftPanelMinimized, setIsLeftPanelMinimized] = useState(false);
+  // File Results state from custom hook
+  const fileResultsState = useFileResultsState();
+  const {
+    allResults, setAllResults,
+    selectedResult, setSelectedResult,
+    stats, setStats,
+    loadedFileName, setLoadedFileName,
+    loadedFileSize, setLoadedFileSize,
+    duplicateStats, setDuplicateStats,
+    errorInfo, setErrorInfo,
+    falsePositives, setFalsePositives, toggleFalsePositive,
+    showExportDropdown, setShowExportDropdown,
+    fileResultsScrollTop, setFileResultsScrollTop,
+    clearResults,
+  } = fileResultsState;
+
+  // GPO state from custom hook
+  const gpoState = useGPOState();
+  const {
+    GPOReport, setGPOReport,
+    gpoList,
+    setGpoSearch, setGpoLinkedFilter, setGpoSortField, setGpoSortDirection,
+    setGpoCurrentPage, setGpoPageSize, setSelectedGPO, setSelectedGPOIndex,
+    setGpoListScrollTop,
+    gpoSettings,
+    setGpoSettingsSearch, setGpoSettingsScopeFilter, setGpoSettingsCategoryFilter,
+    setGpoSettingsCurrentPage, setGpoSettingsPageSize, setGpoSettingsSortField,
+    setGpoSettingsSortDirection, setGpoSettingsSelectedIndex,
+    setGpoSettingsShowExportDropdown, setGpoSettingsScrollTop,
+    clearGPOState,
+  } = gpoState;
+
+  // Filtering and sorting from custom hook
+  const {
+    filteredResults,
+    filters,
+    setRatingFilter,
+    setSearchFilter,
+    setFileExtensionFilter,
+    setCredentialsFilter,
+    setScriptsConfigsFilter,
+    setCustomFilters,
+    setSortField,
+    setSortDirection,
+    handleSort,
+    resetFilters,
+  } = useFiltering({ data: allResults });
+
   const [currentView, setCurrentView] = useState<View>('dashboard');
-  
-  // Persistent panel sizing
-  const [leftPanelWidthPx, setLeftPanelWidthPx] = useState<number>(300);
-  const [rightPanelWidthPx, setRightPanelWidthPx] = useState<number>(400);
-  const [draggingSide, setDraggingSide] = useState<'left' | 'right' | null>(null);
-  const previousLeftWidthRef = useRef<number>(300);
-  const windowWidthRef = useRef<number>(typeof window !== 'undefined' ? window.innerWidth : 1440);
-  
+
+  // Panel layout using shared hook (replaces inline panel sizing logic)
+  const [panelState, panelActions] = usePanelLayout({ storageKeyPrefix: 'layout' });
+  const { leftPanelWidthPx, rightPanelWidthPx, isLeftPanelMinimized, showRightPanel, draggingSide } = panelState;
+  const { setShowRightPanel, toggleLeftPanel, startDragging } = panelActions;
+
   // Theme state
   const [isDarkTheme, setIsDarkTheme] = useState(true);
-  
-  // File Results filters and state
-  const [ratingFilter, setRatingFilter] = useState<string[]>(['all']);
-  const [searchFilter, setSearchFilter] = useState('');
-  const [sortField, setSortField] = useState<SortField>('rating');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [customFilters, setCustomFilters] = useState<CustomFilter[]>([]);
+
+  // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState({
     rating: true,
     risk: true,
@@ -67,285 +95,20 @@ function App() {
     size: true
   });
 
-  // Memoize customFilters to prevent unnecessary re-renders when empty
-  const stableCustomFilters = useMemo(() => customFilters, [JSON.stringify(customFilters)]);
-
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
 
-  // Credentials filter state
-  const [credentialsFilter, setCredentialsFilter] = useState(false);
-
-  // Scripts & Configs filter state
-  const [scriptsConfigsFilter, setScriptsConfigsFilter] = useState(false);
-
-  // File extension filter state
-  const [fileExtensionFilter, setFileExtensionFilter] = useState<string[]>([]);
-
-  const [loadedFileName, setLoadedFileName] = useState<string>('');
-  const [loadedFileSize, setLoadedFileSize] = useState<string>('');
-
-  // Stats for dashboard
-  const [stats, setStats] = useState({
-    total: 0,
-    red: 0,
-    yellow: 0,
-    green: 0,
-    black: 0
-  });
-
   // Share Results state
-  const [shareResults, setShareResults] = useState<any[]>([]);
-  // GPO state
-  const [GPOReport, setGPOReport] = useState<GPOReport | null>(null);
-  
-  // GPO Details state (for persistence across tab navigation)
-  const [gpoSearch, setGpoSearch] = useState('');
-  const [gpoLinkedFilter, setGpoLinkedFilter] = useState<string>('all');
-  const [gpoSortField, setGpoSortField] = useState<'gpo' | 'settingsCount' | 'linked'>('gpo');
-  const [gpoSortDirection, setGpoSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [gpoCurrentPage, setGpoCurrentPage] = useState(1);
-  const [gpoPageSize, setGpoPageSize] = useState(50);
-  const [selectedGPO, setSelectedGPO] = useState<any>(null);
-  const [selectedGPOIndex, setSelectedGPOIndex] = useState<number>(-1);
-  const [showGPORightPanel, setShowGPORightPanel] = useState(false);
-  const [isGPOLeftPanelMinimized, setIsGPOLeftPanelMinimized] = useState(false);
-  
-  // GPO Settings state (for persistence across tab navigation)
-  const [gpoSettingsSearch, setGpoSettingsSearch] = useState('');
-  const [gpoSettingsScopeFilter, setGpoSettingsScopeFilter] = useState<string>('all');
-  const [gpoSettingsCategoryFilter, setGpoSettingsCategoryFilter] = useState<string>('all');
-  const [gpoSettingsCurrentPage, setGpoSettingsCurrentPage] = useState(1);
-  const [gpoSettingsPageSize, setGpoSettingsPageSize] = useState(100);
-  const [gpoSettingsSortField, setGpoSettingsSortField] = useState<'gpo' | 'scope' | 'category' | 'entries' | 'findings' | 'severity'>('severity');
-  const [gpoSettingsSortDirection, setGpoSettingsSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [gpoSettingsSelectedIndex, setGpoSettingsSelectedIndex] = useState<number | null>(null);
-  const [gpoSettingsShowExportDropdown, setGpoSettingsShowExportDropdown] = useState(false);
-  const [isGpoSettingsLeftPanelMinimized, setIsGpoSettingsLeftPanelMinimized] = useState(false);
-  
-  // GPO panel width state (for persistence across tab navigation)
-  const [gpoLeftPanelWidthPx, setGpoLeftPanelWidthPx] = useState<number>(300);
-  const [gpoRightPanelWidthPx, setGpoRightPanelWidthPx] = useState<number>(400);
-  const [gpoDetailsLeftPanelWidthPx, setGpoDetailsLeftPanelWidthPx] = useState<number>(300);
-  const [gpoDetailsRightPanelWidthPx, setGpoDetailsRightPanelWidthPx] = useState<number>(400);
-  
-  // GPO scroll position state (for persistence across tab navigation)
-  const [gpoListScrollTop, setGpoListScrollTop] = useState<number>(0);
-  const [gpoSettingsScrollTop, setGpoSettingsScrollTop] = useState<number>(0);
-
-  // Initialize GPO panel widths and scroll positions from localStorage
-  useEffect(() => {
-    const ww = window.innerWidth;
-    const storedGpoLeftPct = getStoredPct('layout:gpo:leftPct', 300 / ww);
-    const storedGpoRightPct = getStoredPct('layout:gpo:rightPct', 400 / ww);
-    const storedGpoDetailsLeftPct = getStoredPct('layout:gpo-details:leftPct', 300 / ww);
-    const storedGpoDetailsRightPct = getStoredPct('layout:gpo-details:rightPct', 400 / ww);
-    
-    setGpoLeftPanelWidthPx(Math.round(storedGpoLeftPct * ww));
-    setGpoRightPanelWidthPx(Math.round(storedGpoRightPct * ww));
-    setGpoDetailsLeftPanelWidthPx(Math.round(storedGpoDetailsLeftPct * ww));
-    setGpoDetailsRightPanelWidthPx(Math.round(storedGpoDetailsRightPct * ww));
-    
-    // Initialize scroll positions from localStorage
-    const storedGpoListScroll = getStoredPct('scroll:gpo-list', 0);
-    const storedGpoSettingsScroll = getStoredPct('scroll:gpo-settings', 0);
-    setGpoListScrollTop(storedGpoListScroll);
-    setGpoSettingsScrollTop(storedGpoSettingsScroll);
-  }, []);
-
-  // Save GPO panel widths to localStorage
-  useEffect(() => {
-    const ww = window.innerWidth;
-    if (ww > 0) {
-      setStoredPct('layout:gpo:leftPct', gpoLeftPanelWidthPx / ww);
-    }
-  }, [gpoLeftPanelWidthPx]);
-
-  useEffect(() => {
-    const ww = window.innerWidth;
-    if (ww > 0) {
-      setStoredPct('layout:gpo:rightPct', gpoRightPanelWidthPx / ww);
-    }
-  }, [gpoRightPanelWidthPx]);
-
-  useEffect(() => {
-    const ww = window.innerWidth;
-    if (ww > 0) {
-      setStoredPct('layout:gpo-details:leftPct', gpoDetailsLeftPanelWidthPx / ww);
-    }
-  }, [gpoDetailsLeftPanelWidthPx]);
-
-  useEffect(() => {
-    const ww = window.innerWidth;
-    if (ww > 0) {
-      setStoredPct('layout:gpo-details:rightPct', gpoDetailsRightPanelWidthPx / ww);
-    }
-  }, [gpoDetailsRightPanelWidthPx]);
-
-  // Save GPO scroll positions to localStorage
-  useEffect(() => {
-    setStoredPct('scroll:gpo-list', gpoListScrollTop);
-  }, [gpoListScrollTop]);
-
-  useEffect(() => {
-    setStoredPct('scroll:gpo-settings', gpoSettingsScrollTop);
-  }, [gpoSettingsScrollTop]);
-  
-  
-  // Duplicate statistics state
-  const [duplicateStats, setDuplicateStats] = useState<any>(null);
-
-  // Error state
-  const [errorInfo, setErrorInfo] = useState<{ message: string; snippet?: string; errorPosition?: number; fileName?: string; fileType?: string; actualLineNumber?: number; snippetStartLine?: number } | null>(null);
-
-  // False positive state
-  const [falsePositives, setFalsePositives] = useState<Set<string>>(new Set());
-
-  // Export dropdown state
-  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const [shareResults, setShareResults] = useState<ShareInfo[]>([]);
 
   // Keyboard shortcuts modal state
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
 
-  // Refs
-  const filtersPanelRef = useRef<HTMLDivElement>(null);
-  const leftResizerRef = useRef<HTMLDivElement>(null);
-  const rightResizerRef = useRef<HTMLDivElement>(null);
-  const fileTableWrapperRef = useRef<HTMLDivElement>(null);
-  const [fileResultsScrollTop, setFileResultsScrollTop] = useState<number>(0);
+  // Loading state for file processing
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Helpers for persistence
-  const getStoredPct = (key: string, fallback: number) => {
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return fallback;
-      const num = parseFloat(raw);
-      return isNaN(num) ? fallback : num;
-    } catch {
-      return fallback;
-    }
-  };
-
-  const setStoredPct = (key: string, value: number) => {
-    try {
-      localStorage.setItem(key, String(value));
-    } catch {}
-  };
-
-  // Initialize panel sizes from stored proportions
-  useEffect(() => {
-    const ww = window.innerWidth;
-    windowWidthRef.current = ww;
-    const storedLeftPct = getStoredPct('layout:leftPct', 300 / ww);
-    const storedRightPct = getStoredPct('layout:rightPct', 400 / ww);
-    const MIN_LEFT = 180;
-    const MIN_RIGHT = 280;
-    const MIN_CENTER = 480;
-    const computedRight = Math.round(storedRightPct * ww);
-    const maxLeft = Math.max(MIN_LEFT, ww - (showRightPanel ? computedRight : 0) - MIN_CENTER);
-    const newLeft = Math.max(MIN_LEFT, Math.min(Math.round(storedLeftPct * ww), maxLeft));
-    const maxRight = Math.max(MIN_RIGHT, ww - newLeft - MIN_CENTER);
-    const newRight = Math.max(MIN_RIGHT, Math.min(computedRight, maxRight));
-    setLeftPanelWidthPx(newLeft);
-    setRightPanelWidthPx(newRight);
-    // Keep reference for un-minimize
-    previousLeftWidthRef.current = Math.max(MIN_LEFT, Math.round(storedLeftPct * ww));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Recompute sizes on window resize to maintain proportions
-  useEffect(() => {
-    const onResize = () => {
-      const ww = window.innerWidth;
-      const leftPct = leftPanelWidthPx / windowWidthRef.current;
-      const rightPct = rightPanelWidthPx / windowWidthRef.current;
-      windowWidthRef.current = ww;
-      const MIN_LEFT = 180;
-      const MIN_RIGHT = 280;
-      const MIN_CENTER = 480;
-      const computedLeft = Math.round(leftPct * ww);
-      const computedRight = Math.round(rightPct * ww);
-      const maxLeft = Math.max(MIN_LEFT, ww - (showRightPanel ? computedRight : 0) - MIN_CENTER);
-      setLeftPanelWidthPx(Math.max(MIN_LEFT, Math.min(computedLeft, maxLeft)));
-      if (showRightPanel) {
-        const maxRight = Math.max(MIN_RIGHT, ww - leftPanelWidthPx - MIN_CENTER);
-        setRightPanelWidthPx(Math.max(MIN_RIGHT, Math.min(computedRight, maxRight)));
-      }
-    };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [leftPanelWidthPx, rightPanelWidthPx, showRightPanel]);
-
-  // Clamp sizes when right panel visibility changes
-  useEffect(() => {
-    const ww = window.innerWidth;
-    const MIN_LEFT = 180;
-    const MIN_RIGHT = 280;
-    const MIN_CENTER = 480;
-    if (showRightPanel) {
-      const maxLeft = Math.max(MIN_LEFT, ww - rightPanelWidthPx - MIN_CENTER);
-      setLeftPanelWidthPx(prev => Math.max(MIN_LEFT, Math.min(prev, maxLeft)));
-      const maxRight = Math.max(MIN_RIGHT, ww - (isLeftPanelMinimized ? 50 : leftPanelWidthPx) - MIN_CENTER);
-      setRightPanelWidthPx(prev => Math.max(MIN_RIGHT, Math.min(prev, maxRight)));
-    } else {
-      // No right panel: ensure center >= MIN_CENTER still holds for left width
-      const maxLeft = Math.max(MIN_LEFT, ww - MIN_CENTER);
-      setLeftPanelWidthPx(prev => Math.max(MIN_LEFT, Math.min(prev, maxLeft)));
-    }
-  }, [showRightPanel, isLeftPanelMinimized, leftPanelWidthPx, rightPanelWidthPx]);
-
-  // Persist proportions when sizes change
-  useEffect(() => {
-    const ww = windowWidthRef.current || window.innerWidth;
-    if (ww > 0) {
-      setStoredPct('layout:leftPct', leftPanelWidthPx / ww);
-    }
-  }, [leftPanelWidthPx]);
-  useEffect(() => {
-    const ww = windowWidthRef.current || window.innerWidth;
-    if (ww > 0) {
-      setStoredPct('layout:rightPct', rightPanelWidthPx / ww);
-    }
-  }, [rightPanelWidthPx]);
-
-  // Drag handling
-  useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => {
-      if (!draggingSide) return;
-      const ww = window.innerWidth;
-      const MIN_LEFT = 180;
-      const MIN_RIGHT = 280;
-      const MIN_CENTER = 480;
-      if (draggingSide === 'left') {
-        if (isLeftPanelMinimized) return;
-        let newLeft = e.clientX; // distance from left edge
-        // Clamp to min and ensure center maintains min width
-        const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - MIN_CENTER;
-        newLeft = Math.max(MIN_LEFT, Math.min(newLeft, maxLeft));
-        setLeftPanelWidthPx(newLeft);
-        previousLeftWidthRef.current = newLeft;
-      } else if (draggingSide === 'right') {
-        if (!showRightPanel) return;
-        // right width is window width - mouseX
-        let newRight = ww - e.clientX;
-        const maxRight = ww - (isLeftPanelMinimized ? 50 : leftPanelWidthPx) - MIN_CENTER;
-        newRight = Math.max(MIN_RIGHT, Math.min(newRight, maxRight));
-        setRightPanelWidthPx(newRight);
-      }
-    };
-    const onMouseUp = () => {
-      if (draggingSide) setDraggingSide(null);
-    };
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-    return () => {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-  }, [draggingSide, isLeftPanelMinimized, leftPanelWidthPx, rightPanelWidthPx, showRightPanel]);
-
-  const handleFileUpload = (data: any, fileType: 'json' | 'text' | 'log', fileName: string, fileSize?: string) => {
+  const handleFileUpload = (data: SnafflerJsonData | string | string[], fileType: 'json' | 'text' | 'log', fileName: string, fileSize?: string) => {
     // Helper: detect GPO in plaintext
     const looksLikeGPO = (text: string) => {
       return /\[GPO\]/.test(text) && (/^\s*\|.*\|/m.test(text) || /\\___/.test(text));
@@ -422,84 +185,46 @@ function App() {
   };
 
   const handleReset = () => {
-    // Clear all results and data
-    setAllResults([]);
-    setSelectedResult(null);
+    // Clear File Results state using hook action
+    clearResults();
     setShowRightPanel(false);
-    setLoadedFileName('');
-    setLoadedFileSize('');
     setCurrentView('dashboard');
-    setStats({
-      total: 0,
-      red: 0,
-      yellow: 0,
-      green: 0,
-      black: 0
-    });
+
+    // Clear GPO state using hook action
+    clearGPOState();
+
+    // Clear Share Results
     setShareResults([]);
-    setGPOReport(null);
-    setDuplicateStats(null);
-    setErrorInfo(null);
-    
-    // Clear GPO state
-    setGpoSearch('');
-    setGpoLinkedFilter('all');
-    setGpoSortField('gpo');
-    setGpoSortDirection('asc');
-    setGpoCurrentPage(1);
-    setGpoPageSize(50);
-    setSelectedGPO(null);
-    setSelectedGPOIndex(-1);
-    setShowGPORightPanel(false);
-    setIsGPOLeftPanelMinimized(false);
-    
-    // Clear GPO Settings state
-    setGpoSettingsSearch('');
-    setGpoSettingsScopeFilter('all');
-    setGpoSettingsCategoryFilter('all');
-    setGpoSettingsCurrentPage(1);
-    setGpoSettingsPageSize(100);
-    setGpoSettingsSortField('severity');
-    setGpoSettingsSortDirection('desc');
-    setGpoSettingsSelectedIndex(null);
-    setGpoSettingsShowExportDropdown(false);
-    setIsGpoSettingsLeftPanelMinimized(false);
-    
+
     // Clear localStorage
     try {
       localStorage.clear();
     } catch (error) {
       console.warn('Failed to clear localStorage:', error);
     }
-    
-    // Reset all filters and search
-    setRatingFilter(['all']);
-    setSearchFilter('');
-    setFileExtensionFilter([]);
-    setCustomFilters([]);
-    setCredentialsFilter(false);
-    setFalsePositives(new Set());
-    
-    // Reset sorting to default
-    setSortField('rating');
-    setSortDirection('desc');
-    
+
+    // Reset all filters using hook
+    resetFilters();
+
     // Reset pagination
     setCurrentPage(1);
     setPageSize(100);
-    
+
     // Reset column visibility
     setVisibleColumns({
       rating: true,
+      risk: true,
       fullPath: true,
       creationTime: true,
       lastModified: true,
       size: true
     });
-    
-    // Reset panel state
-    setIsLeftPanelMinimized(false);
-    
+
+    // Reset panel state (restore left panel if minimized)
+    if (isLeftPanelMinimized) {
+      toggleLeftPanel();
+    }
+
     // Clear the file input so the same file can be selected again
     const fileInput = document.getElementById('file-input') as HTMLInputElement;
     if (fileInput) {
@@ -509,15 +234,6 @@ function App() {
 
   const handleClearError = () => {
     handleReset();
-  };
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('desc');
-    }
   };
 
   const handleSelectResult = (result: FileResult) => {
@@ -541,6 +257,7 @@ function App() {
   const processFile = (file: File) => {
     const fileType = file.name.endsWith('.json') ? 'json' : (file.name.endsWith('.log') ? 'log' : 'text');
     const fileSize = formatFileSize(file.size);
+    setIsProcessing(true);
     file.text().then(text => {
       try {
         setErrorInfo(null);
@@ -550,15 +267,16 @@ function App() {
         } else {
           handleFileUpload([text], fileType, file.name, fileSize);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error processing file:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         let snippet = '';
         let errorPosition: number | undefined;
         let tempErrorLineInfo: { actualErrorLine?: number; snippetStartLine?: number } = {};
 
         if (fileType === 'json') {
           let match: RegExpMatchArray | null = null;
-          const lineColumnMatch = error.message.match(/line (\d+) column (\d+)/);
+          const lineColumnMatch = errorMessage.match(/line (\d+) column (\d+)/);
           if (lineColumnMatch) {
             const lineNum = parseInt(lineColumnMatch[1], 10);
             const colNum = parseInt(lineColumnMatch[2], 10);
@@ -569,11 +287,11 @@ function App() {
               position += lines[i].length + 1;
             }
             position += colNum - 1;
-            match = [null as any, position.toString()] as any;
+            match = ['', position.toString()] as RegExpMatchArray;
           }
-          if (!match) match = error.message.match(/position (\d+)/);
-          if (!match) match = error.message.match(/at position (\d+)/);
-          if (!match) match = error.message.match(/column (\d+)/);
+          if (!match) match = errorMessage.match(/position (\d+)/);
+          if (!match) match = errorMessage.match(/at position (\d+)/);
+          if (!match) match = errorMessage.match(/column (\d+)/);
 
           if (match) {
             const absolutePosition = parseInt(match[1], 10);
@@ -594,14 +312,14 @@ function App() {
               start = Math.max(0, absolutePosition - 150);
               end = Math.min(text.length, absolutePosition + 150);
             }
-            snippet = text.substring(start!, end!);
-            let relativePosition = absolutePosition - start!;
-            if (start! > 0) { snippet = '...' + snippet; relativePosition += 3; }
-            if (end! < text.length) { snippet = snippet + '...'; }
+            snippet = text.substring(start, end);
+            let relativePosition = absolutePosition - start;
+            if (start > 0) { snippet = '...' + snippet; relativePosition += 3; }
+            if (end < text.length) { snippet = snippet + '...'; }
             errorPosition = relativePosition;
             tempErrorLineInfo = { actualErrorLine, snippetStartLine };
           } else {
-            const errorMsg = (error.message || '').toLowerCase();
+            const errorMsg = errorMessage.toLowerCase();
             if (errorMsg.includes('unexpected end') || errorMsg.includes('unterminated') || errorMsg.includes('expected') || errorMsg.includes('eof') || errorMsg.includes('end of') || errorMsg.includes('missing') || errorMsg.includes('incomplete')) {
               const start = Math.max(0, text.length - 300);
               snippet = text.substring(start);
@@ -618,7 +336,7 @@ function App() {
         }
 
         setErrorInfo({
-          message: (error as any).message || 'An unknown error occurred while processing the file.',
+          message: errorMessage || 'An unknown error occurred while processing the file.',
           snippet,
           errorPosition,
           fileName: file.name,
@@ -634,6 +352,8 @@ function App() {
         fileName: file.name,
         fileType
       });
+    }).finally(() => {
+      setIsProcessing(false);
     });
   };
 
@@ -714,42 +434,10 @@ function App() {
     };
   }, [selectedResult, showKeyboardShortcuts, showRightPanel, currentView]);
 
-  const handleToggleLeftPanel = () => {
-    setIsLeftPanelMinimized(prev => {
-      const next = !prev;
-      if (next) {
-        // minimizing: remember current
-        previousLeftWidthRef.current = leftPanelWidthPx;
-        setLeftPanelWidthPx(50);
-      } else {
-        // restoring: use previous width, respecting constraints
-        const ww = window.innerWidth;
-        const MIN_LEFT = 180;
-        const MIN_CENTER = 480;
-        const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - MIN_CENTER;
-        const restored = Math.max(MIN_LEFT, Math.min(previousLeftWidthRef.current || 300, maxLeft));
-        setLeftPanelWidthPx(restored);
-      }
-      return next;
-    });
-  };
-
   // Dashboard navigation and filtering functions
   const handleNavigateToResults = () => {
     setCurrentView('file-results');
   };
-
-  // Restore File Results table scroll when returning to the view
-  useEffect(() => {
-    if (currentView === 'file-results') {
-      // Restore after first paint
-      setTimeout(() => {
-        if (fileTableWrapperRef.current && fileResultsScrollTop > 0) {
-          fileTableWrapperRef.current.scrollTop = fileResultsScrollTop;
-        }
-      }, 0);
-    }
-  }, [currentView, fileResultsScrollTop]);
 
   const handleFilterBySystem = (systemId: string) => {
     setSearchFilter(systemId);
@@ -779,225 +467,10 @@ function App() {
     setCustomFilters([]); // Reset custom filters
   };
 
-  // Filter and sort results
+  // Reset to first page when filters change
   useEffect(() => {
-    
-    let filtered = allResults;
-    
-    // Apply rating filter
-    if (!ratingFilter.includes('all')) {
-      filtered = filtered.filter(result => 
-        ratingFilter.includes(result.rating.toLowerCase())
-      );
-    }
-    
-    // Apply search filter
-    if (searchFilter) {
-      const searchLower = searchFilter.toLowerCase();
-      filtered = filtered.filter(result => 
-        result.fileName.toLowerCase().includes(searchLower) ||
-        result.fullPath.toLowerCase().includes(searchLower) ||
-        result.matchContext.toLowerCase().includes(searchLower) ||
-        result.matchedStrings.some(str => str.toLowerCase().includes(searchLower))
-      );
-    }
-    
-    // Apply file extension filter
-    if (fileExtensionFilter.length > 0) {
-      filtered = filtered.filter(result => {
-        const fileName = result.fileName.toLowerCase();
-        return fileExtensionFilter.some(extension => 
-          fileName.endsWith(`.${extension}`)
-        );
-      });
-    }
-    
-    // Apply credentials filter
-    if (credentialsFilter) {
-      filtered = filtered.filter(result => {
-        // If the filename itself clearly looks like credentials (e.g. password.txt, creds.xml),
-        // always include it regardless of match context content.
-        // To avoid false positives like "passage", only use stronger/longer keywords for filenames.
-        const fileNameLower = result.fileName.toLowerCase();
-        const strongFileNameKeywords = CREDENTIALS_KEYWORDS.filter(k => k.length >= 5);
-        const fileNameHasKeyword = strongFileNameKeywords.some(keyword =>
-          fileNameLower.includes(keyword.toLowerCase())
-        );
-        if (fileNameHasKeyword) {
-          return true;
-        }
-
-        // Helper function to check if matchContext looks like a rule name or configuration
-        const isRuleOrConfig = (context: string): boolean => {
-          const contextTrimmed = context.trim();
-          if (!contextTrimmed) return false;
-          
-          // Check for comma-separated camelCase patterns (like "HasPassword,LookNearbyFor.txtFiles")
-          if (/^[A-Z][a-zA-Z]*(?:,[A-Z][a-zA-Z]*)+/.test(contextTrimmed)) {
-            return true;
-          }
-          
-          // Check for camelCase patterns that look like rule names (multiple capital letters)
-          // Pattern: starts with capital, has multiple capital letters, no spaces
-          if (/^[A-Z][a-z]*[A-Z]/.test(contextTrimmed) && !/\s/.test(contextTrimmed)) {
-            // But allow if it's very short and might be actual content
-            if (contextTrimmed.length > 30) {
-              return true;
-            }
-          }
-          
-          // Check for patterns that look like configuration strings
-          // Multiple camelCase words separated by commas or other delimiters
-          if (/[A-Z][a-zA-Z]*[A-Z][a-zA-Z]*(?:[,;]|\s+)[A-Z][a-zA-Z]*/.test(contextTrimmed)) {
-            return true;
-          }
-          
-          return false;
-        };
-        
-        // Helper function to check if matchContext is just a filename or only extensions
-        const isJustFilename = (context: string, fileName: string): boolean => {
-          const contextLower = context.trim().toLowerCase();
-          const fileNameLower = fileName.toLowerCase();
-          
-          // Check if matchContext is exactly the filename or just contains the filename
-          if (contextLower === fileNameLower || contextLower === fileNameLower.replace(/^.*[\\/]/, '')) {
-            return true;
-          }
-          
-          // Check if matchContext is just a common file extension (e.g. ".bak") or a double extension (".txt.bak")
-          const extensionPattern = /^\.([a-z0-9]{1,6})(\.(bak|old|tmp|temp|swp|orig|backup|copy|~))?$/i;
-          
-          if (extensionPattern.test(contextLower)) {
-            return true;
-          }
-          
-          // Check if matchContext is very short (likely just a filename without path)
-          // and doesn't contain meaningful content (no spaces, no common words)
-          if (contextLower.length < 20 && !/\s/.test(contextLower) && !/[a-z]{4,}/.test(contextLower)) {
-            return true;
-          }
-          
-          return false;
-        };
-        
-        // Get and validate matchContext
-        const matchContext = (result.matchContext || '').trim();
-        const hasValidMatchContext = matchContext && 
-          !isJustFilename(matchContext, result.fileName) && 
-          !isRuleOrConfig(matchContext);
-        
-        // Filter matchedStrings to exclude filenames, extensions, and rule/config patterns
-        const matchedStrings = (result.matchedStrings || [])
-          .map(s => (s || '').trim())
-          .filter(s => s.length > 0 && 
-            !isJustFilename(s, result.fileName) && 
-            !isRuleOrConfig(s));
-
-        // Explicitly drop double‑extension backup files (e.g. "*.txt.bak") when there is no real content
-        const isDoubleExtensionFile = /\.[a-z0-9]{1,6}\.(bak|old|tmp|temp|swp|orig|backup|copy|pdf|docx|xlsx|pptx|zip|rar|tar|gz|bz2|7z|exe|dll|sys|bin|ini|cfg|conf|config|properties|yml|yaml|env|sh|bat|cmd|ps1|vbs|js|py|java|cpp|c|h|hpp|cs|php|rb|pl|sql|db|sqlite|mdb|accdb|ldf|mdf|dbf|dwg|dxf|psd|ai|eps|svg|png|jpg|jpeg|gif|bmp|tiff|ico|mp3|mp4|avi|mov|wmv|flv|mkv|iso|img|vmdk|vdi|vhd|ova|ovf|~)$/.test(fileNameLower);
-        if (isDoubleExtensionFile && !hasValidMatchContext && matchedStrings.length === 0) {
-          return false;
-        }
-
-        // Skip if no valid content to check (neither matchContext nor matchedStrings have actual content)
-        if (!hasValidMatchContext && matchedStrings.length === 0) {
-          return false;
-        }
-        
-        // Build search text from valid content only (exclude filename)
-        const searchText = [
-          ...(hasValidMatchContext ? [matchContext] : []),
-          ...matchedStrings
-        ].join(' ').toLowerCase();
-        
-        // Check if any keyword appears in the actual content
-        return CREDENTIALS_KEYWORDS.some(keyword =>
-          searchText.includes(keyword.toLowerCase())
-        );
-      });
-    }
-
-    // Apply scripts & configs filter
-    if (scriptsConfigsFilter) {
-      const scriptExtensions = ['ps1', 'bat', 'cmd', 'vbs', 'js', 'config', 'xml', 'ini', 'conf', 'yaml', 'yml', 'json'];
-      filtered = filtered.filter(result => {
-        const ext = result.fileName.split('.').pop()?.toLowerCase() || '';
-        return scriptExtensions.includes(ext);
-      });
-    }
-
-    // Apply custom filters
-    if (stableCustomFilters.length > 0) {
-      filtered = filtered.filter(result => {
-        const resultText = [
-          result.fileName,
-          result.fullPath,
-          result.matchContext,
-          ...result.matchedStrings
-        ].join(' ').toLowerCase();
-        
-        // Exclude if any custom filter text is found in the result
-        return !stableCustomFilters.some(filter => 
-          resultText.includes(filter.text.toLowerCase())
-        );
-      });
-    }
-    
-    // Sort results (create a copy first to avoid mutating the filtered array)
-    const sortedResults = [...filtered].sort((a, b) => {
-      let aValue: any = a[sortField];
-      let bValue: any = b[sortField];
-
-      if (sortField === 'rating') {
-          // Handle rating sorting with proper severity order (Black > Red > Yellow > Green)
-        const ratingOrder: Record<string, number> = { 'Black': 4, 'Red': 3, 'Yellow': 2, 'Green': 1 };
-        aValue = ratingOrder[aValue] || 0;
-        bValue = ratingOrder[bValue] || 0;
-      } else if (sortField === 'riskScore') {
-        // Sort by risk score total
-        aValue = a.riskScore?.total || 0;
-        bValue = b.riskScore?.total || 0;
-      } else if (sortField === 'size') {
-        aValue = parseInt(aValue) || 0;
-        bValue = parseInt(bValue) || 0;
-      } else if (sortField === 'creationTime' || sortField === 'lastModified') {
-        aValue = new Date(aValue).getTime();
-        bValue = new Date(bValue).getTime();
-      } else {
-        aValue = String(aValue).toLowerCase();
-        bValue = String(bValue).toLowerCase();
-      }
-      
-      // Primary sort
-      if (sortDirection === 'asc') {
-        if (aValue !== bValue) {
-          return aValue > bValue ? 1 : -1;
-        }
-      } else {
-        if (aValue !== bValue) {
-          return aValue < bValue ? 1 : -1;
-        }
-      }
-      
-      // Secondary sort by fileName to ensure stable ordering
-      const aFileName = String(a.fileName).toLowerCase();
-      const bFileName = String(b.fileName).toLowerCase();
-      if (aFileName !== bFileName) {
-        return aFileName > bFileName ? 1 : -1;
-      }
-      
-      // Tertiary sort by fullPath for complete stability
-      const aPath = String(a.fullPath).toLowerCase();
-      const bPath = String(b.fullPath).toLowerCase();
-      return aPath > bPath ? 1 : -1;
-    });
-    
-    setFilteredResults([...sortedResults]);
-
-    // Reset to first page when filters change
     setCurrentPage(1);
-  }, [allResults, ratingFilter, searchFilter, fileExtensionFilter, credentialsFilter, scriptsConfigsFilter, stableCustomFilters, sortField, sortDirection]);
+  }, [filters]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredResults.length / pageSize);
@@ -1022,38 +495,36 @@ function App() {
     document.documentElement.setAttribute('data-theme', !isDarkTheme ? 'light' : 'dark');
   };
 
-  // Handle toggling false positive status
+  // Handle toggling false positive status (uses hook's toggleFalsePositive)
   const handleToggleFalsePositive = (result: FileResult) => {
     const key = `${result.fullPath}-${result.fileName}`;
-    setFalsePositives(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(key)) {
-        newSet.delete(key);
-      } else {
-        newSet.add(key);
-      }
-      return newSet;
-    });
+    toggleFalsePositive(key);
   };
 
   // Unified export handlers for current view
   const handleExportCSV = async () => {
     if (currentView === 'file-results') {
       exportFileResultsToCSV(filteredResults, visibleColumns, falsePositives);
+      showToast('CSV export complete', 'success');
     } else if (currentView === 'share-results') {
       exportShareResultsToCSV(shareResults);
+      showToast('CSV export complete', 'success');
     } else if (currentView === 'GPO-results' && GPOReport) {
       exportGPOToCSV(GPOReport);
+      showToast('CSV export complete', 'success');
     }
   };
 
   const handleExportXLSX = async () => {
     if (currentView === 'file-results') {
       await exportFileResultsToXLSX(allResults, filteredResults, visibleColumns, falsePositives, stats, loadedFileName);
+      showToast('XLSX export complete', 'success');
     } else if (currentView === 'share-results') {
       await exportShareResultsToXLSX(shareResults);
+      showToast('XLSX export complete', 'success');
     } else if (currentView === 'GPO-results' && GPOReport) {
       await exportGPOToXLSX(GPOReport);
+      showToast('XLSX export complete', 'success');
     }
   };
 
@@ -1091,354 +562,100 @@ function App() {
       
       case 'file-results':
         return (
-          <div className="main-content">
-            <div 
-              className={`left-panel ${isLeftPanelMinimized ? 'minimized' : ''}`} 
-              ref={filtersPanelRef}
-              style={{ width: isLeftPanelMinimized ? 50 : leftPanelWidthPx }}
-            >
-              <div className="panel-header">
-                <span>Filters</span>
-                <button className="minimize-button" onClick={handleToggleLeftPanel}>
-                  <i className={`fas fa-chevron-${isLeftPanelMinimized ? 'right' : 'left'}`}></i>
-                </button>
-              </div>
-              <div className="panel-content">
-                <Filters
-                  ratingFilter={ratingFilter}
-                  searchFilter={searchFilter}
-                  fileExtensionFilter={fileExtensionFilter}
-                  sortField={sortField}
-                  sortDirection={sortDirection}
-                  customFilters={stableCustomFilters}
-                  credentialsFilter={credentialsFilter}
-                  scriptsConfigsFilter={scriptsConfigsFilter}
-                  onRatingFilterChange={setRatingFilter}
-                  onSearchFilterChange={setSearchFilter}
-                  onFileExtensionFilterChange={setFileExtensionFilter}
-                  onSortFieldChange={setSortField}
-                  onSortDirectionChange={setSortDirection}
-                  onCustomFiltersChange={setCustomFilters}
-                  onCredentialsFilterChange={setCredentialsFilter}
-                  onScriptsConfigsFilterChange={setScriptsConfigsFilter}
-                  stats={stats}
-                  isMinimized={isLeftPanelMinimized}
-                />
-              </div>
-            </div>
-
-            <div 
-              className={`center-panel ${isLeftPanelMinimized ? 'expanded' : ''} ${showRightPanel ? 'with-right-panel' : ''}`}
-              style={{ 
-                left: isLeftPanelMinimized ? 50 : leftPanelWidthPx, 
-                right: showRightPanel ? rightPanelWidthPx : 0 
-              }}
-            >
-              <div className="table-container">
-                <div className="table-header">
-                  <div className="table-header-content">
-                    <div className="search-container">
-                      <div className="search-input-wrapper">
-                        <input
-                          id="search-filter"
-                          type="text"
-                          placeholder="Search files, paths, or content..."
-                          value={searchFilter}
-                          onChange={(e) => setSearchFilter(e.target.value)}
-                        />
-                        {searchFilter && (
-                          <button 
-                            className="search-clear-button"
-                            onClick={() => setSearchFilter('')}
-                            type="button"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <div className="table-controls">
-                      <div id="column-dropdown-container" className="column-visibility-dropdown">
-                        <button
-                          className="column-visibility-button"
-                          onClick={() => {
-                            const dropdown = document.getElementById('column-dropdown');
-                            dropdown?.classList.toggle('show');
-                          }}
-                        >
-                          <span className="button-text">Columns</span>
-                          <span className="dropdown-arrow">
-                            <i className="fas fa-chevron-down"></i>
-                          </span>
-                        </button>
-                        <div id="column-dropdown" className="column-dropdown-menu">
-                          <div className="column-dropdown-item">
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={visibleColumns.rating}
-                                onChange={(e) => setVisibleColumns(prev => ({
-                                  ...prev,
-                                  rating: e.target.checked
-                                }))}
-                              />
-                              Rating
-                            </label>
-                          </div>
-                          <div className="column-dropdown-item">
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={visibleColumns.risk}
-                                onChange={(e) => setVisibleColumns(prev => ({
-                                  ...prev,
-                                  risk: e.target.checked
-                                }))}
-                              />
-                              Risk
-                            </label>
-                          </div>
-                          <div className="column-dropdown-item">
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={visibleColumns.fullPath}
-                                onChange={(e) => setVisibleColumns(prev => ({
-                                  ...prev,
-                                  fullPath: e.target.checked
-                                }))}
-                              />
-                              Full Path
-                            </label>
-                          </div>
-                          <div className="column-dropdown-item">
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={visibleColumns.creationTime}
-                                onChange={(e) => setVisibleColumns(prev => ({
-                                  ...prev,
-                                  creationTime: e.target.checked
-                                }))}
-                              />
-                              Creation Time
-                            </label>
-                          </div>
-                          <div className="column-dropdown-item">
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={visibleColumns.lastModified}
-                                onChange={(e) => setVisibleColumns(prev => ({
-                                  ...prev,
-                                  lastModified: e.target.checked
-                                }))}
-                              />
-                              Last Modified
-                            </label>
-                          </div>
-                          <div className="column-dropdown-item">
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={visibleColumns.size}
-                                onChange={(e) => setVisibleColumns(prev => ({
-                                  ...prev,
-                                  size: e.target.checked
-                                }))}
-                              />
-                              Size
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="export-dropdown-container" id="export-dropdown">
-                        <button 
-                          className="action-button dropdown-button"
-                          onClick={() => setShowExportDropdown(!showExportDropdown)}
-                          disabled={filteredResults.length === 0}
-                          title="Export current results"
-                        >
-                          <i className="fas fa-download button-icon"></i>
-                          Export
-                          <i className="fas fa-chevron-down dropdown-arrow"></i>
-                        </button>
-                        {showExportDropdown && (
-                          <div className="export-dropdown-menu">
-                            <button 
-                              className="export-dropdown-item"
-                              title="Export current results to CSV"
-                              onClick={async () => {
-                                await handleExportCSV();
-                                setShowExportDropdown(false);
-                              }}
-                            >
-                              <i className="fas fa-file-csv"></i>
-                              Export CSV
-                            </button>
-                            <button 
-                              className="export-dropdown-item"
-                              title="Export current results to XLSX"
-                              onClick={async () => {
-                                await handleExportXLSX();
-                                setShowExportDropdown(false);
-                              }}
-                            >
-                              <i className="fas fa-file-excel"></i>
-                              Export XLSX
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      <div className="results-count">
-                        Showing {filteredResults.length} of {allResults.length} files
-                        {falsePositives.size > 0 && (
-                          <span className="false-positive-count">
-                            ({falsePositives.size} marked as false positive)
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div
-                  className="table-wrapper"
-                  ref={fileTableWrapperRef}
-                  onScroll={(e) => {
-                    const target = e.currentTarget as HTMLDivElement;
-                    setFileResultsScrollTop(target.scrollTop);
-                  }}
-                >
-                  <ResultsTable
-                    results={currentPageData}
-                    selectedResult={selectedResult}
-                    onSelectResult={handleSelectResult}
-                    sortField={sortField}
-                    sortDirection={sortDirection}
-                    onSort={handleSort}
-                    visibleColumns={visibleColumns}
-                    currentPage={currentPage}
-                    pageSize={pageSize}
-                    totalPages={totalPages}
-                    totalResults={filteredResults.length}
-                    onPageChange={handlePageChange}
-                    onPageSizeChange={handlePageSizeChange}
-                    falsePositives={falsePositives}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div 
-              className={`right-panel ${!showRightPanel ? 'hidden' : ''}`}
-              style={{ width: rightPanelWidthPx }}
-            >
-              <div className="panel-header">
-                <span>Details</span>
-                <button className="close-button" onClick={handleCloseRightPanel}>
-                  ×
-                </button>
-              </div>
-              <div className="panel-content">
-                <DetailPanel 
-                  selectedResult={selectedResult} 
-                  onClose={handleCloseRightPanel}
-                  onToggleFalsePositive={handleToggleFalsePositive}
-                  falsePositives={falsePositives}
-                />
-              </div>
-            </div>
-
-            {/* Resizers */}
-            <div 
-              ref={leftResizerRef}
-              className={`resizer resizer-left ${isLeftPanelMinimized ? 'hidden' : ''} ${draggingSide === 'left' ? 'dragging' : ''}`}
-              style={{ left: isLeftPanelMinimized ? 50 : leftPanelWidthPx }}
-              onMouseDown={(e) => { e.preventDefault(); setDraggingSide('left'); }}
-            />
-            <div 
-              ref={rightResizerRef}
-              className={`resizer resizer-right ${showRightPanel ? '' : 'hidden'} ${draggingSide === 'right' ? 'dragging' : ''}`}
-              style={{ right: rightPanelWidthPx }}
-              onMouseDown={(e) => { e.preventDefault(); setDraggingSide('right'); }}
-            />
-          </div>
+          <FileResultsView
+            allResults={allResults}
+            filteredResults={filteredResults}
+            selectedResult={selectedResult}
+            currentPageData={currentPageData}
+            stats={stats}
+            visibleColumns={visibleColumns}
+            setVisibleColumns={setVisibleColumns}
+            falsePositives={falsePositives}
+            showExportDropdown={showExportDropdown}
+            setShowExportDropdown={setShowExportDropdown}
+            filters={filters}
+            setRatingFilter={setRatingFilter}
+            setSearchFilter={setSearchFilter}
+            setFileExtensionFilter={setFileExtensionFilter}
+            setCredentialsFilter={setCredentialsFilter}
+            setScriptsConfigsFilter={setScriptsConfigsFilter}
+            setCustomFilters={setCustomFilters}
+            setSortField={setSortField}
+            setSortDirection={setSortDirection}
+            handleSort={handleSort}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            onSelectResult={setSelectedResult}
+            onCloseRightPanel={() => setSelectedResult(null)}
+            onExportCSV={handleExportCSV}
+            onExportXLSX={handleExportXLSX}
+            onToggleFalsePositive={handleToggleFalsePositive}
+            scrollTop={fileResultsScrollTop}
+            setScrollTop={setFileResultsScrollTop}
+          />
         );
-      
+
       case 'share-results':
         return (
-          <div className="share-results-container">
-            <ShareResults shareResults={shareResults} />
-          </div>
+          <ShareResults shareResults={shareResults} />
         );
       case 'GPO-results':
         return (
           <>
             {GPOReport && (
-              <GPOResults 
+              <GPOResults
                 report={GPOReport}
-                search={gpoSettingsSearch}
+                search={gpoSettings.search}
                 setSearch={setGpoSettingsSearch}
-                scopeFilter={gpoSettingsScopeFilter}
+                scopeFilter={gpoSettings.scopeFilter}
                 setScopeFilter={setGpoSettingsScopeFilter}
-                categoryFilter={gpoSettingsCategoryFilter}
+                categoryFilter={gpoSettings.categoryFilter}
                 setCategoryFilter={setGpoSettingsCategoryFilter}
-                currentPage={gpoSettingsCurrentPage}
+                currentPage={gpoSettings.currentPage}
                 setCurrentPage={setGpoSettingsCurrentPage}
-                pageSize={gpoSettingsPageSize}
+                pageSize={gpoSettings.pageSize}
                 setPageSize={setGpoSettingsPageSize}
-                sortField={gpoSettingsSortField}
+                sortField={gpoSettings.sortField}
                 setSortField={setGpoSettingsSortField}
-                sortDirection={gpoSettingsSortDirection}
+                sortDirection={gpoSettings.sortDirection}
                 setSortDirection={setGpoSettingsSortDirection}
-                selectedIndex={gpoSettingsSelectedIndex}
+                selectedIndex={gpoSettings.selectedIndex}
                 setSelectedIndex={setGpoSettingsSelectedIndex}
-                showExportDropdown={gpoSettingsShowExportDropdown}
+                showExportDropdown={gpoSettings.showExportDropdown}
                 setShowExportDropdown={setGpoSettingsShowExportDropdown}
-                isLeftPanelMinimized={isGpoSettingsLeftPanelMinimized}
-                setIsLeftPanelMinimized={setIsGpoSettingsLeftPanelMinimized}
-                leftPanelWidthPx={gpoLeftPanelWidthPx}
-                setLeftPanelWidthPx={setGpoLeftPanelWidthPx}
-                rightPanelWidthPx={gpoRightPanelWidthPx}
-                setRightPanelWidthPx={setGpoRightPanelWidthPx}
-                scrollTop={gpoSettingsScrollTop}
+                scrollTop={gpoSettings.scrollTop}
                 setScrollTop={setGpoSettingsScrollTop}
               />
             )}
           </>
         );
-      
+
       case 'GPO-details':
         return (
           <>
             {GPOReport && (
-              <GPODetails 
+              <GPODetails
                 report={GPOReport}
-                search={gpoSearch}
+                search={gpoList.search}
                 setSearch={setGpoSearch}
-                linkedFilter={gpoLinkedFilter}
+                linkedFilter={gpoList.linkedFilter}
                 setLinkedFilter={setGpoLinkedFilter}
-                sortField={gpoSortField}
+                sortField={gpoList.sortField}
                 setSortField={setGpoSortField}
-                sortDirection={gpoSortDirection}
+                sortDirection={gpoList.sortDirection}
                 setSortDirection={setGpoSortDirection}
-                currentPage={gpoCurrentPage}
+                currentPage={gpoList.currentPage}
                 setCurrentPage={setGpoCurrentPage}
-                pageSize={gpoPageSize}
+                pageSize={gpoList.pageSize}
                 setPageSize={setGpoPageSize}
-                selectedGPO={selectedGPO}
+                selectedGPO={gpoList.selectedGPO}
                 setSelectedGPO={setSelectedGPO}
-                selectedIndex={selectedGPOIndex}
+                selectedIndex={gpoList.selectedIndex}
                 setSelectedIndex={setSelectedGPOIndex}
-                showRightPanel={showGPORightPanel}
-                setShowRightPanel={setShowGPORightPanel}
-                isLeftPanelMinimized={isGPOLeftPanelMinimized}
-                setIsLeftPanelMinimized={setIsGPOLeftPanelMinimized}
-                leftPanelWidthPx={gpoDetailsLeftPanelWidthPx}
-                setLeftPanelWidthPx={setGpoDetailsLeftPanelWidthPx}
-                rightPanelWidthPx={gpoDetailsRightPanelWidthPx}
-                setRightPanelWidthPx={setGpoDetailsRightPanelWidthPx}
-                scrollTop={gpoListScrollTop}
+                scrollTop={gpoList.scrollTop}
                 setScrollTop={setGpoListScrollTop}
               />
             )}
@@ -1551,6 +768,16 @@ function App() {
         isOpen={showKeyboardShortcuts}
         onClose={() => setShowKeyboardShortcuts(false)}
       />
+
+      {/* Loading Spinner Overlay */}
+      {isProcessing && (
+        <div className="spinner-overlay">
+          <Spinner size="large" label="Processing file..." />
+        </div>
+      )}
+
+      {/* Toast Notifications */}
+      <Toast />
     </div>
   );
 }

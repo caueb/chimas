@@ -1,9 +1,9 @@
 import * as ExcelJS from 'exceljs';
-import { FileResult, Stats } from '../types';
+import { FileResult, Stats, ShareInfo } from '../types';
 import { GPOReport } from './GPOParser';
 
 // -------- Helpers --------
-const safeToNumber = (value: any, fallback = 0): number => {
+const safeToNumber = (value: unknown, fallback = 0): number => {
   const n = typeof value === 'number' ? value : parseInt(String(value));
   return isNaN(n) ? fallback : n;
 };
@@ -112,7 +112,7 @@ export async function exportFileResultsToXLSX(
   }
 
   const resultsSheet = workbook.addWorksheet('Results');
-  const headers: any[] = [];
+  const headers: Array<{ header: string; key: string; width: number }> = [];
   const colKeys: string[] = [];
   if (visibleColumns.rating) { headers.push({ header: 'Rating', key: 'rating', width: 10 }); colKeys.push('rating'); }
   if (visibleColumns.fullPath) { headers.push({ header: 'Full Path', key: 'fullPath', width: 60 }); colKeys.push('fullPath'); }
@@ -124,7 +124,7 @@ export async function exportFileResultsToXLSX(
   resultsSheet.columns = headers;
 
   exportResults.forEach(result => {
-    const rowData: any = {};
+    const rowData: Record<string, string> = {};
     if (visibleColumns.rating) rowData.rating = result.rating;
     if (visibleColumns.fullPath) rowData.fullPath = result.fullPath;
     if (visibleColumns.creationTime) rowData.creationTime = formatDate(result.creationTime);
@@ -137,19 +137,23 @@ export async function exportFileResultsToXLSX(
       const cell = row.getCell(ratingColumnIndex);
       switch (String(result.rating).toLowerCase()) {
         case 'red':
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ratingColors.Red } } as any;
+          // ExcelJS types don't fully cover fill patterns, cast needed
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ratingColors.Red } } as ExcelJS.Fill;
           cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
           break;
         case 'yellow':
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ratingColors.Yellow } } as any;
+          // ExcelJS types don't fully cover fill patterns, cast needed
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ratingColors.Yellow } } as ExcelJS.Fill;
           cell.font = { bold: true };
           break;
         case 'green':
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ratingColors.Green } } as any;
+          // ExcelJS types don't fully cover fill patterns, cast needed
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ratingColors.Green } } as ExcelJS.Fill;
           cell.font = { bold: true };
           break;
         case 'black':
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ratingColors.Black } } as any;
+          // ExcelJS types don't fully cover fill patterns, cast needed
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ratingColors.Black } } as ExcelJS.Fill;
           cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
           break;
       }
@@ -160,9 +164,10 @@ export async function exportFileResultsToXLSX(
     const cellChar = String.fromCharCode(65 + idx);
     const cellIdx = `${cellChar}1`;
     resultsSheet.getCell(cellIdx).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    resultsSheet.getCell(cellIdx).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } } as any;
+    // ExcelJS types don't fully cover fill patterns, cast needed
+    resultsSheet.getCell(cellIdx).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } } as ExcelJS.Fill;
   });
-  resultsSheet.autoFilter = { from: 'A1', to: `${String.fromCharCode(64 + headers.length)}${exportResults.length + 1}` } as any;
+  resultsSheet.autoFilter = { from: 'A1', to: `${String.fromCharCode(64 + headers.length)}${exportResults.length + 1}` };
   resultsSheet.views = [{ state: 'frozen', ySplit: 1 }];
 
   const buffer = await workbook.xlsx.writeBuffer();
@@ -178,7 +183,7 @@ export async function exportFileResultsToXLSX(
 }
 
 // -------- Share Results --------
-export function exportShareResultsToCSV(shareResults: any[]) {
+export function exportShareResultsToCSV(shareResults: ShareInfo[]): void {
   if (!shareResults || shareResults.length === 0) return;
   const headers = [
     'System ID', 'Share Name', 'Path', 'Permissions', 'Comment',
@@ -204,7 +209,7 @@ export function exportShareResultsToCSV(shareResults: any[]) {
   document.body.removeChild(link);
 }
 
-export async function exportShareResultsToXLSX(shareResults: any[]) {
+export async function exportShareResultsToXLSX(shareResults: ShareInfo[]): Promise<void> {
   if (!shareResults || shareResults.length === 0) return;
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Share Results');
@@ -423,7 +428,8 @@ export async function exportGPOToXLSX(report: GPOReport) {
       case 'informational': key = 'Informational'; break;
     }
     if (key) {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: severityColors[key] } } as any;
+      // ExcelJS types don't fully cover fill patterns, cast needed
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: severityColors[key] } } as ExcelJS.Fill;
       // Use white text for better contrast on dark colors
       if (key === 'Red' || key === 'Black') {
         cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -507,7 +513,8 @@ export async function exportGPOToXLSX(report: GPOReport) {
       case 'informational': key = 'Informational'; break;
     }
     if (key) {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: severityColors[key] } } as any;
+      // ExcelJS types don't fully cover fill patterns, cast needed
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: severityColors[key] } } as ExcelJS.Fill;
       if (key === 'Red' || key === 'Black') {
         cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       } else {

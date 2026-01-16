@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { GPOReport } from '../utils/GPOParser';
+import React, { useRef, useEffect } from 'react';
+import { GPOReport, Gpo } from '../utils/GPOParser';
 import { formatDateLocale } from '../utils/formatting';
 import { LAYOUT } from '../utils/constants';
+import { usePanelLayout, Button, Input, Dropdown } from './shared';
 
 interface GPODetailsProps {
   report: GPOReport;
@@ -17,23 +18,15 @@ interface GPODetailsProps {
   setCurrentPage: (page: number) => void;
   pageSize: number;
   setPageSize: (size: number) => void;
-  selectedGPO: any;
-  setSelectedGPO: (gpo: any) => void;
+  selectedGPO: Gpo | null;
+  setSelectedGPO: (gpo: Gpo | null) => void;
   selectedIndex: number;
   setSelectedIndex: (index: number) => void;
-  showRightPanel: boolean;
-  setShowRightPanel: (show: boolean) => void;
-  isLeftPanelMinimized: boolean;
-  setIsLeftPanelMinimized: (minimized: boolean) => void;
-  leftPanelWidthPx: number;
-  setLeftPanelWidthPx: (width: number) => void;
-  rightPanelWidthPx: number;
-  setRightPanelWidthPx: (width: number) => void;
   scrollTop: number;
   setScrollTop: (scrollTop: number) => void;
 }
 
-const GPODetails: React.FC<GPODetailsProps> = ({ 
+const GPODetails: React.FC<GPODetailsProps> = ({
   report,
   search,
   setSearch,
@@ -51,43 +44,17 @@ const GPODetails: React.FC<GPODetailsProps> = ({
   setSelectedGPO,
   selectedIndex,
   setSelectedIndex,
-  showRightPanel,
-  setShowRightPanel,
-  isLeftPanelMinimized,
-  setIsLeftPanelMinimized,
-  leftPanelWidthPx,
-  setLeftPanelWidthPx,
-  rightPanelWidthPx,
-  setRightPanelWidthPx,
   scrollTop,
   setScrollTop
 }) => {
-  
-  const [draggingSide, setDraggingSide] = useState<'left' | 'right' | null>(null);
-  const previousLeftWidthRef = useRef<number>(300);
-  const windowWidthRef = useRef<number>(typeof window !== 'undefined' ? window.innerWidth : 1440);
-  const leftResizerRef = useRef<HTMLDivElement>(null);
-  const rightResizerRef = useRef<HTMLDivElement>(null);
+
+  // Panel layout using shared hook (replaces inline panel sizing logic)
+  const [panelState, panelActions] = usePanelLayout({ storageKeyPrefix: 'layout:gpo-details' });
+  const { leftPanelWidthPx, rightPanelWidthPx, isLeftPanelMinimized, showRightPanel, draggingSide } = panelState;
+  const { setShowRightPanel, toggleLeftPanel, startDragging } = panelActions;
+
   const tableRef = useRef<HTMLTableElement>(null);
   const tableWrapperRef = useRef<HTMLDivElement>(null);
-
-  // Dropdown states
-  const [linkedDropdownOpen, setLinkedDropdownOpen] = useState(false);
-
-  // Handle click outside to close dropdowns
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element;
-      if (!target.closest('.unified-dropdown')) {
-        setLinkedDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
   // Restore scroll position when component mounts
   useEffect(() => {
@@ -112,10 +79,10 @@ const GPODetails: React.FC<GPODetailsProps> = ({
   }, [setScrollTop]);
 
   // Helper function to determine if GPO is linked
-  const isGPOLinked = (gpo: any) => {
+  const isGPOLinked = (gpo: Gpo): boolean => {
     // A GPO is considered linked only if it has Link entries (not just settings)
     // Handle both old Link field and new links array for backward compatibility
-    return !!(gpo.header.links?.length > 0 || gpo.header.Link);
+    return !!(gpo.header.links?.length && gpo.header.links.length > 0) || !!gpo.header.Link;
   };
 
   // Helper function to parse Link field and extract enabled/forced status
@@ -143,23 +110,24 @@ const GPODetails: React.FC<GPODetailsProps> = ({
 
 
   // Helper function to get overall status from all links
-  const getOverallLinkStatus = (gpo: any) => {
+  const getOverallLinkStatus = (gpo: Gpo): { enabled: boolean; forced: boolean } => {
     // Handle both old Link field and new links array for backward compatibility
-    const links = gpo.header.links || (gpo.header.Link ? [gpo.header.Link] : []);
-    
+    const linkVal = gpo.header.Link;
+    const links: string[] = gpo.header.links || (typeof linkVal === 'string' ? [linkVal] : []);
+
     if (links.length === 0) {
       return { enabled: false, forced: false };
     }
-    
+
     let enabled = false;
     let forced = false;
-    
+
     for (const link of links) {
       const status = parseLinkStatus(link);
       if (status.enabled) enabled = true;
       if (status.forced) forced = true;
     }
-    
+
     return { enabled, forced };
   };
 
@@ -202,8 +170,8 @@ const GPODetails: React.FC<GPODetailsProps> = ({
 
     // Sort
     gpos.sort((a, b) => {
-      let aValue: any = '';
-      let bValue: any = '';
+      let aValue: string | number | boolean = '';
+      let bValue: string | number | boolean = '';
 
       switch (sortField) {
         case 'gpo':
@@ -235,7 +203,7 @@ const GPODetails: React.FC<GPODetailsProps> = ({
   
 
   // Panel management functions
-  const handleSelectGPO = (gpo: any, index?: number) => {
+  const handleSelectGPO = (gpo: Gpo, index?: number) => {
     setSelectedGPO(gpo);
     setShowRightPanel(true);
     if (index !== undefined) {
@@ -293,20 +261,6 @@ const GPODetails: React.FC<GPODetailsProps> = ({
     setSelectedIndex(-1);
   };
 
-  const handleToggleLeftPanel = () => {
-    const next = !isLeftPanelMinimized;
-    if (next) {
-      previousLeftWidthRef.current = leftPanelWidthPx;
-      setLeftPanelWidthPx(LAYOUT.MINIMIZED_PANEL);
-    } else {
-      const ww = window.innerWidth;
-      const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - LAYOUT.MIN_CENTER_PANEL;
-      const restored = Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(previousLeftWidthRef.current || LAYOUT.DEFAULT_LEFT_PANEL, maxLeft));
-      setLeftPanelWidthPx(restored);
-    }
-    setIsLeftPanelMinimized(next);
-  };
-
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -327,53 +281,6 @@ const GPODetails: React.FC<GPODetailsProps> = ({
     return formatDateLocale(dateStr);
   };
 
-  // Initialize panel sizes from props (no localStorage needed - managed by App.tsx)
-  useEffect(() => {
-    const ww = window.innerWidth;
-    windowWidthRef.current = ww;
-    // Panel widths are already set from props, just ensure they're within bounds
-    if (leftPanelWidthPx < LAYOUT.MIN_LEFT_PANEL || leftPanelWidthPx > ww - LAYOUT.MIN_CENTER_PANEL) {
-      const maxLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, ww - (showRightPanel ? rightPanelWidthPx : 0) - LAYOUT.MIN_CENTER_PANEL);
-      setLeftPanelWidthPx(Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(leftPanelWidthPx, maxLeft)));
-    }
-
-    if (rightPanelWidthPx < LAYOUT.MIN_RIGHT_PANEL || rightPanelWidthPx > ww - LAYOUT.MIN_CENTER_PANEL) {
-      const maxRight = Math.max(LAYOUT.MIN_RIGHT_PANEL, ww - (isLeftPanelMinimized ? LAYOUT.MINIMIZED_PANEL : leftPanelWidthPx) - LAYOUT.MIN_CENTER_PANEL);
-      setRightPanelWidthPx(Math.max(LAYOUT.MIN_RIGHT_PANEL, Math.min(rightPanelWidthPx, maxRight)));
-    }
-    
-    previousLeftWidthRef.current = leftPanelWidthPx;
-  }, []);
-
-  // Drag handling
-  useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => {
-      if (!draggingSide) return;
-      const ww = window.innerWidth;
-      if (draggingSide === 'left') {
-        if (isLeftPanelMinimized) return;
-        let newLeft = e.clientX;
-        const maxLeft = ww - (showRightPanel ? rightPanelWidthPx : 0) - LAYOUT.MIN_CENTER_PANEL;
-        newLeft = Math.max(LAYOUT.MIN_LEFT_PANEL, Math.min(newLeft, maxLeft));
-        setLeftPanelWidthPx(newLeft);
-        previousLeftWidthRef.current = newLeft;
-      } else if (draggingSide === 'right') {
-        if (!showRightPanel) return;
-        let newRight = ww - e.clientX;
-        const maxRight = ww - (isLeftPanelMinimized ? LAYOUT.MINIMIZED_PANEL : leftPanelWidthPx) - LAYOUT.MIN_CENTER_PANEL;
-        newRight = Math.max(LAYOUT.MIN_RIGHT_PANEL, Math.min(newRight, maxRight));
-        setRightPanelWidthPx(newRight);
-      }
-    };
-    const onMouseUp = () => { if (draggingSide) setDraggingSide(null); };
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-    return () => {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-  }, [draggingSide, isLeftPanelMinimized, leftPanelWidthPx, rightPanelWidthPx, showRightPanel]);
-
   return (
     <div className="main-content">
       {/* Left Panel - Filters */}
@@ -383,52 +290,22 @@ const GPODetails: React.FC<GPODetailsProps> = ({
       >
         <div className="panel-header">
           <span>Filters</span>
-          <button className="minimize-button" onClick={handleToggleLeftPanel}>
+          <Button variant="ghost" className="minimize-button" onClick={toggleLeftPanel}>
             <i className={`fas fa-chevron-${isLeftPanelMinimized ? 'right' : 'left'}`}></i>
-          </button>
+          </Button>
         </div>
         <div className="panel-content">
           <div className="filter-section">
             <label>Linked</label>
-            <div className="unified-dropdown">
-              <button 
-                className="unified-dropdown-button" 
-                onClick={() => setLinkedDropdownOpen(!linkedDropdownOpen)}
-              >
-                <span>{linkedFilter === 'all' ? 'All' : linkedFilter === 'yes' ? 'Yes' : 'No'}</span>
-                <span className="unified-dropdown-arrow">
-                  <i className="fas fa-chevron-down"></i>
-                </span>
-              </button>
-              {linkedDropdownOpen && (
-                <div className="unified-dropdown-menu show">
-                  <div className="unified-dropdown-item">
-                    <button 
-                      onClick={() => { handleFilterChange('linked', 'all'); setLinkedDropdownOpen(false); }} 
-                      className={linkedFilter === 'all' ? 'selected' : ''}
-                    >
-                      All
-                    </button>
-                  </div>
-                  <div className="unified-dropdown-item">
-                    <button 
-                      onClick={() => { handleFilterChange('linked', 'yes'); setLinkedDropdownOpen(false); }} 
-                      className={linkedFilter === 'yes' ? 'selected' : ''}
-                    >
-                      Yes
-                    </button>
-                  </div>
-                  <div className="unified-dropdown-item">
-                    <button 
-                      onClick={() => { handleFilterChange('linked', 'no'); setLinkedDropdownOpen(false); }} 
-                      className={linkedFilter === 'no' ? 'selected' : ''}
-                    >
-                      No
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <Dropdown
+              value={linkedFilter}
+              onChange={(value) => handleFilterChange('linked', value)}
+              options={[
+                { value: 'all', label: 'All' },
+                { value: 'yes', label: 'Yes' },
+                { value: 'no', label: 'No' }
+              ]}
+            />
           </div>
         </div>
       </div>
@@ -441,25 +318,12 @@ const GPODetails: React.FC<GPODetailsProps> = ({
         <div className="table-container">
           <div className="table-header">
             <div className="table-header-content">
-              <div className="search-container">
-                <div className="search-input-wrapper">
-                  <input
-                    type="text"
-                    placeholder="Search GPO name, path..."
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-                  />
-                  {search && (
-                    <button
-                      className="search-clear-button"
-                      onClick={() => setSearch('')}
-                      type="button"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              </div>
+              <Input
+                value={search}
+                onChange={(value) => { setSearch(value); setCurrentPage(1); }}
+                placeholder="Search GPO name, path..."
+                clearable
+              />
               <div className="table-controls">
                 <div className="results-count">
                   Showing {filteredAndSorted.length} of {report.gpos.length} GPOs
@@ -536,34 +400,10 @@ const GPODetails: React.FC<GPODetailsProps> = ({
                 </select>
               </div>
               <div className="pagination-buttons">
-                <button 
-                  className={`pagination-button ${currentPage === 1 ? 'disabled' : ''}`} 
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(1)}
-                >
-                  {'<<'}
-                </button>
-                <button 
-                  className={`pagination-button ${currentPage === 1 ? 'disabled' : ''}`} 
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                >
-                  {'<'}
-                </button>
-                <button 
-                  className={`pagination-button ${currentPage === totalPages ? 'disabled' : ''}`} 
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                >
-                  {'>'}
-                </button>
-                <button 
-                  className={`pagination-button ${currentPage === totalPages ? 'disabled' : ''}`} 
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(totalPages)}
-                >
-                  {'>>'}
-                </button>
+                <Button variant="pagination" disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>{'<<'}</Button>
+                <Button variant="pagination" disabled={currentPage === 1} onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}>{'<'}</Button>
+                <Button variant="pagination" disabled={currentPage === totalPages} onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}>{'>'}</Button>
+                <Button variant="pagination" disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)}>{'>>'}</Button>
               </div>
             </div>
           </div>
@@ -572,12 +412,12 @@ const GPODetails: React.FC<GPODetailsProps> = ({
 
       {/* Right Panel - Details */}
       <div 
-        className={`right-panel ${selectedGPO === null ? 'hidden' : ''}`}
+        className={`right-panel ${!showRightPanel ? 'hidden' : ''}`}
         style={{ width: rightPanelWidthPx }}
       >
         <div className="panel-header">
           <span>GPO Details</span>
-          <button className="close-button" onClick={handleCloseRightPanel}>×</button>
+          <Button variant="ghost" className="close-button" onClick={handleCloseRightPanel}>×</Button>
         </div>
         <div className="panel-content">
           {selectedGPO ? (
@@ -647,12 +487,13 @@ const GPODetails: React.FC<GPODetailsProps> = ({
               
               
               {(() => {
-                const links = selectedGPO.header.links || (selectedGPO.header.Link ? [selectedGPO.header.Link] : []);
+                const linkVal = selectedGPO.header.Link;
+                const links: string[] = selectedGPO.header.links || (typeof linkVal === 'string' ? [linkVal] : []);
                 return links.length > 0 && (
                   <div className="detail-section">
                     <div className="detail-label">Link Details ({links.length} link{links.length > 1 ? 's' : ''})</div>
                     <div className="link-list">
-                      {links.map((link: string, index: number) => {
+                      {links.map((link, index) => {
                         const status = parseLinkStatus(link);
                         return (
                           <div key={index} className="link-item">
@@ -696,17 +537,15 @@ const GPODetails: React.FC<GPODetailsProps> = ({
       </div>
 
       {/* Resizers */}
-      <div 
-        ref={leftResizerRef}
+      <div
         className={`resizer resizer-left ${isLeftPanelMinimized ? 'hidden' : ''} ${draggingSide === 'left' ? 'dragging' : ''}`}
         style={{ left: isLeftPanelMinimized ? 50 : leftPanelWidthPx }}
-        onMouseDown={(e) => { e.preventDefault(); setDraggingSide('left'); }}
+        onMouseDown={(e) => { e.preventDefault(); startDragging('left'); }}
       />
-      <div 
-        ref={rightResizerRef}
+      <div
         className={`resizer resizer-right ${showRightPanel ? '' : 'hidden'} ${draggingSide === 'right' ? 'dragging' : ''}`}
         style={{ right: rightPanelWidthPx }}
-        onMouseDown={(e) => { e.preventDefault(); setDraggingSide('right'); }}
+        onMouseDown={(e) => { e.preventDefault(); startDragging('right'); }}
       />
     </div>
   );
