@@ -27,8 +27,7 @@ export interface FileResult {
   rwStatus?: {
     readable: boolean;
     writable: boolean;
-    executable: boolean;
-    deleteable: boolean;
+    modifyable: boolean;
   };
   isFalsePositive?: boolean; // Track if this item is marked as false positive
   riskScore?: import('./utils/riskScoring').RiskScore; // Calculated risk score

@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { safeDateTimestamp } from './parser';
 
 /**
  * Format byte size to human-readable string
@@ -36,6 +37,8 @@ export function formatDate(dateString: string, formatStr = 'dd/MM/yyyy HH:mm:ss'
   if (!dateString) return '-';
 
   try {
+    const timestamp = safeDateTimestamp(dateString);
+    if (timestamp === 0) return dateString; // Return original if invalid
     return format(new Date(dateString), formatStr);
   } catch {
     return dateString;

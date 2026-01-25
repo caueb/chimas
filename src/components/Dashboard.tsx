@@ -1,6 +1,6 @@
 import React from 'react';
 import { FileResult } from '../types';
-import { extractUserInfo } from '../utils/parser';
+import { extractUserInfo, safeDateTimestamp } from '../utils/parser';
 import { formatFileSize } from '../utils/formatting';
 import { RiskDistributionChart, TimelineChart, FileTypeChart, RatingDistributionChart } from './charts';
 
@@ -82,16 +82,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareRe
 
   const getRecentFiles = () => {
     return allResults
-      .filter(result => result.lastModified)
-      .sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime())
+      .filter(result => result.lastModified && safeDateTimestamp(result.lastModified) > 0)
+      .sort((a, b) => safeDateTimestamp(b.lastModified) - safeDateTimestamp(a.lastModified))
       .slice(0, 10)
       .map(result => {
-        const date = new Date(result.lastModified);
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear();
-        const formattedDate = `${day}/${month}/${year}`;
-        
+        const timestamp = safeDateTimestamp(result.lastModified);
+        const date = timestamp ? new Date(result.lastModified) : null;
+        const formattedDate = date
+          ? `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`
+          : '-';
+
         return {
         name: result.fileName,
           date: formattedDate,

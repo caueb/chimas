@@ -1479,6 +1479,7 @@ tr.selected:hover td {
 .credentials-filter-button:hover {
   background-color: var(--bg-surface);
   border-color: var(--accent);
+  color: var(--text);
 }
 
 .credentials-filter-button.active {
@@ -2677,8 +2678,7 @@ tr.selected:hover td {
 /* Permission badges - green for true, gray for false */
 .permission-badge.readable,
 .permission-badge.writable,
-.permission-badge.executable,
-.permission-badge.deleteable {
+.permission-badge.modifyable {
   background-color: var(--green);
   color: var(--bg-base);
   border-color: var(--green);
@@ -2686,8 +2686,7 @@ tr.selected:hover td {
 
 .permission-badge.not-readable,
 .permission-badge.not-writable,
-.permission-badge.not-executable,
-.permission-badge.not-deleteable {
+.permission-badge.not-modifyable {
   background-color: var(--text-muted);
   color: var(--bg-base);
   border-color: var(--text-muted);

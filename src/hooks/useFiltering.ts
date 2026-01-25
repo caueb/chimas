@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { FileResult, SortField, SortDirection, CustomFilter } from '../types';
 import { CREDENTIALS_KEYWORDS, RATING_ORDER } from '../utils/constants';
+import { safeDateTimestamp } from '../utils/parser';
 
 interface UseFilteringOptions {
   data: FileResult[];
@@ -148,8 +149,8 @@ export function useFiltering({
         filters.sortField === 'creationTime' ||
         filters.sortField === 'lastModified'
       ) {
-        aValue = new Date(aValue).getTime();
-        bValue = new Date(bValue).getTime();
+        aValue = safeDateTimestamp(aValue as string);
+        bValue = safeDateTimestamp(bValue as string);
       } else {
         aValue = String(aValue).toLowerCase();
         bValue = String(bValue).toLowerCase();

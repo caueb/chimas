@@ -1,36 +1,92 @@
 import { SnafflerJsonData, SnafflerEntry, FileResult, ShareResult, CustomFilter, DuplicateStats, Stats, ShareInfo } from '../types';
 
 /**
+ * Strip UTF-8 BOM (Byte Order Mark) from string if present.
+ * BOM bytes: 0xEF 0xBB 0xBF appear as \uFEFF at start of string
+ */
+export function stripBOM(content: string): string {
+  if (content.charCodeAt(0) === 0xFEFF) {
+    return content.slice(1);
+  }
+  return content;
+}
+
+/**
+ * Safely parse a date string, returning a fallback for invalid dates.
+ * Invalid dates (including "Invalid Date" from new Date()) return the fallback.
+ *
+ * @param dateString - The date string to parse
+ * @param fallback - Value to return if date is invalid (default: '')
+ * @returns Parsed date as ISO string, or fallback if invalid
+ */
+export function safeParseDate(dateString: string | undefined | null, fallback: string = ''): string {
+  if (!dateString) return fallback;
+
+  try {
+    const date = new Date(dateString);
+    // Check if date is valid (Invalid Date returns NaN for getTime())
+    if (isNaN(date.getTime())) {
+      return fallback;
+    }
+    return dateString; // Return original string if valid (preserves original format)
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Safely get timestamp for sorting. Returns 0 for invalid dates.
+ * Use this instead of new Date(str).getTime() to prevent NaN in sort comparisons.
+ */
+export function safeDateTimestamp(dateString: string | undefined | null): number {
+  if (!dateString) return 0;
+
+  try {
+    const date = new Date(dateString);
+    const timestamp = date.getTime();
+    return isNaN(timestamp) ? 0 : timestamp;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Parse the MATCH CONTEXT content to handle escaped characters
- * Enhanced to handle complex Snaffler log patterns
+ * Enhanced to handle complex Snaffler log patterns and Unicode escapes
  */
 function parseMatchContext(matchContext: string): string {
   if (!matchContext) return '';
-  
+
   try {
+    // First, handle Unicode escape sequences (\uXXXX)
+    // This must be done before other escape handling
+    let parsed = matchContext.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => {
+      return String.fromCharCode(parseInt(hex, 16));
+    });
+
     // Handle escape sequences in order of complexity
-    let parsed = matchContext
+    parsed = parsed
       // Handle newlines and carriage returns first
       .replace(/\\r\\n/g, '\n')  // Convert \r\n to actual newlines
       .replace(/\\n/g, '\n')     // Convert \n to actual newlines
       .replace(/\\r/g, '\n')     // Convert \r to newlines
-      
+
       // Handle tabs and spaces
       .replace(/\\t/g, '\t')     // Convert \t to actual tabs
       .replace(/\\ /g, ' ')      // Convert \ (space) to actual spaces
-      
+
       // Handle quotes and backslashes
       .replace(/\\"/g, '"')      // Convert \" to actual quotes
       .replace(/\\\\/g, '\\');   // Convert \\ to actual backslashes
-    
+
     // Only unescape characters that are commonly escaped in text content
     parsed = parsed.replace(/\\([\[\](){}.*+?^$|#<>])/g, '$1');
-    
+
     // Clean up excessive whitespace while preserving newlines
     parsed = parsed
       .replace(/\n\s*\n/g, '\n')  // Remove empty lines
       .trim();
-    
+
     return parsed;
   } catch (error) {
     console.error('Error parsing match context:', error);
@@ -69,6 +125,8 @@ interface ColorKeyData {
   ShareResult?: {
     SharePath?: string;
     ShareComment?: string;
+    ShareName?: string;      // Direct field (may be present)
+    SystemId?: string;       // Direct field (may be present)
     Listable?: boolean;
     RootWritable?: boolean;
     RootReadable?: boolean;
@@ -153,8 +211,7 @@ function parseJsonFileEntry(entry: SnafflerEntry): FileResult[] {
               rwStatus: fileResult.RwStatus ? {
                 readable: fileResult.RwStatus.CanRead || false,
                 writable: fileResult.RwStatus.CanWrite || false,
-                executable: false, // Not available in this RwStatus object
-                deleteable: fileResult.RwStatus.CanModify || false
+                modifyable: fileResult.RwStatus.CanModify || false
               } : undefined
             };
             
@@ -361,10 +418,10 @@ export function parseSnafflerData(data: SnafflerJsonData | string | string[], fi
     parseResult = parseSnafflerText(textData as string);
   }
 
-  if (!parseResult || parseResult.results.length === 0) {
-    throw new Error('Not a valid Snaffler output file, or the file is empty. Please check the file content and try again.');
+  if (!parseResult) {
+    throw new Error('Not a valid Snaffler output file. Please check the file content and try again.');
   }
-
+  // Return empty results if no findings - this is valid (clean environment)
   return parseResult;
 }
 
@@ -641,8 +698,8 @@ export function sortResults(
     else if (sortField === 'creationTime' || sortField === 'lastModified') {
       const aDate = sortField === 'creationTime' ? a.creationTime : a.lastModified;
       const bDate = sortField === 'creationTime' ? b.creationTime : b.lastModified;
-      aValue = new Date(aDate).getTime();
-      bValue = new Date(bDate).getTime();
+      aValue = safeDateTimestamp(aDate);
+      bValue = safeDateTimestamp(bDate);
     }
     // Handle string sorting for other fields
     else {
@@ -758,13 +815,21 @@ function parseJsonShareEntry(entry: SnafflerEntry): ShareResult[] {
       const colorData = eventProps[colorKey];
       if (colorData && colorData.ShareResult) {
         const shareResult = colorData.ShareResult;
-        
+
         if (shareResult.SharePath) {
-          // Extract system ID and share name from the share path
-          const pathMatch = shareResult.SharePath.match(/\\\\([^\\]+)\\([^\\]+)/);
-          const systemId = pathMatch ? pathMatch[1] : '';
-          const shareName = pathMatch ? pathMatch[2] : '';
-          
+          // Prefer direct fields if available, fall back to regex extraction from path
+          let systemId = shareResult.SystemId || '';
+          let shareName = shareResult.ShareName || '';
+
+          // Fall back to regex extraction if direct fields not present
+          if (!systemId || !shareName) {
+            const pathMatch = shareResult.SharePath?.match(/\\\\([^\\]+)\\([^\\]+)/);
+            if (pathMatch) {
+              systemId = systemId || pathMatch[1];
+              shareName = shareName || pathMatch[2];
+            }
+          }
+
           const result: ShareResult = {
             rating: colorKey as 'Red' | 'Green' | 'Yellow' | 'Black',
             sharePath: shareResult.SharePath || '',

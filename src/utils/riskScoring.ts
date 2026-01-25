@@ -1,5 +1,6 @@
 import { FileResult } from '../types';
 import { CREDENTIALS_KEYWORDS } from './constants';
+import { safeDateTimestamp } from './parser';
 
 export interface RiskFactor {
   name: string;
@@ -264,6 +265,8 @@ function getRecencyScore(lastModified: string): number {
   if (!lastModified) return 0;
 
   try {
+    const timestamp = safeDateTimestamp(lastModified);
+    if (timestamp === 0) return 0; // No recency score for invalid dates
     const modDate = new Date(lastModified);
     const now = new Date();
     const daysDiff = (now.getTime() - modDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -368,10 +371,10 @@ function getCertKeyScore(fileName: string): number {
 }
 
 /**
- * Get bonus for full access (read + write + delete)
+ * Get bonus for full access (read + write + modify)
  */
 function getFullAccessBonus(rwStatus: FileResult['rwStatus']): number {
-  if (rwStatus?.readable && rwStatus?.writable && rwStatus?.deleteable) {
+  if (rwStatus?.readable && rwStatus?.writable && rwStatus?.modifyable) {
     return 10;
   }
   return 0;

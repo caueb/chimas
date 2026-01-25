@@ -156,13 +156,8 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ selectedResult, onClos
                 <span className={`permission-badge ${selectedResult.rwStatus.writable ? 'writable' : 'not-writable'}`}>
                   <i className={`fas ${selectedResult.rwStatus.writable ? 'fa-check' : 'fa-times'}`}></i> Write
                 </span>
-                {selectedResult.rwStatus.executable !== undefined && (
-                  <span className={`permission-badge ${selectedResult.rwStatus.executable ? 'executable' : 'not-executable'}`}>
-                    <i className={`fas ${selectedResult.rwStatus.executable ? 'fa-check' : 'fa-times'}`}></i> Execute
-                  </span>
-                )}
-                <span className={`permission-badge ${selectedResult.rwStatus.deleteable ? 'deleteable' : 'not-deleteable'}`}>
-                  <i className={`fas ${selectedResult.rwStatus.deleteable ? 'fa-check' : 'fa-times'}`}></i> Delete
+                <span className={`permission-badge ${selectedResult.rwStatus.modifyable ? 'modifyable' : 'not-modifyable'}`}>
+                  <i className={`fas ${selectedResult.rwStatus.modifyable ? 'fa-check' : 'fa-times'}`}></i> Modify
                 </span>
               </div>
             </div>
