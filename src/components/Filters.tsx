@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { SortField, SortDirection, CustomFilter } from '../types';
+import { Button, Input } from './shared';
 
 interface FiltersProps {
   ratingFilter: string[];
@@ -9,6 +10,7 @@ interface FiltersProps {
   sortDirection: SortDirection;
   customFilters: CustomFilter[];
   credentialsFilter: boolean;
+  scriptsConfigsFilter: boolean;
   onRatingFilterChange: (value: string[]) => void;
   onSearchFilterChange: (value: string) => void;
   onFileExtensionFilterChange: (value: string[]) => void;
@@ -16,6 +18,7 @@ interface FiltersProps {
   onSortDirectionChange: (direction: SortDirection) => void;
   onCustomFiltersChange: (filters: CustomFilter[]) => void;
   onCredentialsFilterChange: (value: boolean) => void;
+  onScriptsConfigsFilterChange: (value: boolean) => void;
   stats: {
     total: number;
     red: number;
@@ -34,6 +37,7 @@ export const Filters: React.FC<FiltersProps> = ({
   sortDirection,
   customFilters,
   credentialsFilter,
+  scriptsConfigsFilter,
   onRatingFilterChange,
   onSearchFilterChange,
   onFileExtensionFilterChange,
@@ -41,6 +45,7 @@ export const Filters: React.FC<FiltersProps> = ({
   onSortDirectionChange,
   onCustomFiltersChange,
   onCredentialsFilterChange,
+  onScriptsConfigsFilterChange,
   stats,
   isMinimized = false
 }) => {
@@ -154,16 +159,30 @@ export const Filters: React.FC<FiltersProps> = ({
           </div>
         </div>
         <div className="credentials-filter">
-          <button 
+          <Button
             className={`credentials-filter-button ${credentialsFilter ? 'active' : ''}`}
+            active={credentialsFilter}
             onClick={() => onCredentialsFilterChange(!credentialsFilter)}
           >
             <i className="fas fa-key"></i>
             {!isMinimized && <span>Potential Plaintext Credentials</span>}
-          </button>
+          </Button>
           {credentialsFilter && !isMinimized && (
             <div className="credentials-filter-info">
               <small>Filtering for keywords like password, passwd, p@ss, key, and others in the match context.</small>
+            </div>
+          )}
+          <Button
+            className={`credentials-filter-button ${scriptsConfigsFilter ? 'active' : ''}`}
+            active={scriptsConfigsFilter}
+            onClick={() => onScriptsConfigsFilterChange(!scriptsConfigsFilter)}
+          >
+            <i className="fas fa-file-code"></i>
+            {!isMinimized && <span>Scripts & Configs</span>}
+          </Button>
+          {scriptsConfigsFilter && !isMinimized && (
+            <div className="credentials-filter-info">
+              <small>Filtering for .ps1, .bat, .cmd, .vbs, .js, .config, .xml, .ini, .conf, .yaml, .yml, .json</small>
             </div>
           )}
         </div>
@@ -174,7 +193,7 @@ export const Filters: React.FC<FiltersProps> = ({
         <div className="file-extension-filter-input">
           <input
             type="text"
-            placeholder="Enter file extension (e.g., txt, pdf, docx)..."
+            placeholder="Enter file extension to show (e.g., txt, pdf, docx)..."
             value={fileExtensionInput}
             onChange={(e) => setFileExtensionInput(e.target.value)}
             onKeyPress={handleFileExtensionKeyPress}
@@ -185,12 +204,13 @@ export const Filters: React.FC<FiltersProps> = ({
             {fileExtensionFilter.map(extension => (
               <div key={extension} className="custom-filter-item">
                 <span className="filter-text">.{extension}</span>
-                <button 
+                <Button
+                  variant="ghost"
                   className="remove-filter-button"
                   onClick={() => handleRemoveFileExtensionFilter(extension)}
                 >
                   ×
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -213,12 +233,13 @@ export const Filters: React.FC<FiltersProps> = ({
             {customFilters.map(filter => (
               <div key={filter.id} className="custom-filter-item">
                 <span className="filter-text">{filter.text}</span>
-                <button 
+                <Button
+                  variant="ghost"
                   className="remove-filter-button"
                   onClick={() => handleRemoveCustomFilter(filter.id)}
                 >
                   ×
-                </button>
+                </Button>
               </div>
             ))}
           </div>

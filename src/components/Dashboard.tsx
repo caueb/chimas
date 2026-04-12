@@ -1,6 +1,8 @@
 import React from 'react';
 import { FileResult } from '../types';
-import { extractUserInfo } from '../utils/parser';
+import { extractUserInfo, safeDateTimestamp } from '../utils/parser';
+import { formatFileSize } from '../utils/formatting';
+import { RiskDistributionChart, TimelineChart, FileTypeChart, RatingDistributionChart } from './charts';
 
 interface DashboardProps {
   stats: {
@@ -12,7 +14,6 @@ interface DashboardProps {
   };
   allResults: FileResult[];
   shareResults: any[];
-  credentialsKeywords: string[];
   onNavigateToResults: () => void;
   onFilterBySystem: (systemId: string) => void;
   onFilterByShare: (sharePath: string) => void;
@@ -20,17 +21,7 @@ interface DashboardProps {
   onSelectFile: (file: FileResult) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareResults, credentialsKeywords, onNavigateToResults, onFilterBySystem, onFilterByShare, onFilterByExtension, onSelectFile }) => {
-  const formatFileSize = (size: string) => {
-    const sizeNum = parseInt(size);
-    if (isNaN(sizeNum)) return '0 B';
-    
-    if (sizeNum < 1024) return `${sizeNum} B`;
-    if (sizeNum < 1024 * 1024) return `${(sizeNum / 1024).toFixed(1)} KB`;
-    if (sizeNum < 1024 * 1024 * 1024) return `${(sizeNum / (1024 * 1024)).toFixed(1)} MB`;
-    return `${(sizeNum / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-  };
-
+export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareResults, onNavigateToResults, onFilterBySystem, onFilterByShare, onFilterByExtension, onSelectFile }) => {
   const getTopSystems = () => {
     const systemCounts: Record<string, number> = {};
     
@@ -72,27 +63,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareRe
       .map(([type, count]) => ({ type, count }));
   };
 
-  const getCredentialsFiles = () => {
-    return allResults
-      .filter(result => {
-        const searchText = [
-          result.matchContext,
-          ...result.matchedStrings
-        ].join(' ').toLowerCase();
-        
-        return credentialsKeywords.some(keyword => 
-          searchText.includes(keyword.toLowerCase())
-        );
-      })
-      .sort((a, b) => {
-        // Prioritize red files, then by size
-        if (a.rating.toLowerCase() === 'red' && b.rating.toLowerCase() !== 'red') return -1;
-        if (b.rating.toLowerCase() === 'red' && a.rating.toLowerCase() !== 'red') return 1;
-        return (parseInt(b.size) || 0) - (parseInt(a.size) || 0);
-      })
-      .slice(0, 10);
-  };
-
   const getLargestFiles = () => {
     return allResults
       .filter(result => {
@@ -112,16 +82,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareRe
 
   const getRecentFiles = () => {
     return allResults
-      .filter(result => result.lastModified)
-      .sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime())
+      .filter(result => result.lastModified && safeDateTimestamp(result.lastModified) > 0)
+      .sort((a, b) => safeDateTimestamp(b.lastModified) - safeDateTimestamp(a.lastModified))
       .slice(0, 10)
       .map(result => {
-        const date = new Date(result.lastModified);
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear();
-        const formattedDate = `${day}/${month}/${year}`;
-        
+        const timestamp = safeDateTimestamp(result.lastModified);
+        const date = timestamp ? new Date(result.lastModified) : null;
+        const formattedDate = date
+          ? `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`
+          : '-';
+
         return {
         name: result.fileName,
           date: formattedDate,
@@ -135,11 +105,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareRe
     return extractUserInfo(allResults);
   };
 
+  const getHighestRiskFiles = () => {
+    return allResults
+      .filter(result => result.riskScore && result.riskScore.total > 0)
+      .sort((a, b) => (b.riskScore?.total || 0) - (a.riskScore?.total || 0))
+      .slice(0, 10);
+  };
+
   const topSystems = getTopSystems();
   const topFileTypes = getTopFileTypes();
-  const credentialsFiles = getCredentialsFiles();
   const largestFiles = getLargestFiles();
   const recentFiles = getRecentFiles();
+  const highestRiskFiles = getHighestRiskFiles();
   const userInfo = getUserInfo();
 
   return (
@@ -147,7 +124,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareRe
       <div className="dashboard-grid">
         {/* Main Stats Cards */}
         <div className="stats-section">
-          <h2>File Statistics</h2>
           {userInfo.users.length > 0 && (
             <div className="scan-user-info">
               <span className="scan-user-label">Snaffler run by:</span>
@@ -161,69 +137,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareRe
               </span>
             </div>
           )}
-          <div className="stats-percentage-bar">
-            <div className="percentage-bar-container">
-              <div 
-                className="percentage-segment black" 
-                style={{ width: `${stats.total > 0 ? (stats.black / stats.total) * 100 : 0}%` }}
-                title={`Black: ${stats.black} (${stats.total > 0 ? ((stats.black / stats.total) * 100).toFixed(1) : '0'}%)`}
-              >
-                <span className="segment-count">{stats.black}</span>
-              </div>
-              <div 
-                className="percentage-segment red" 
-                style={{ width: `${stats.total > 0 ? (stats.red / stats.total) * 100 : 0}%` }}
-                title={`Red: ${stats.red} (${stats.total > 0 ? ((stats.red / stats.total) * 100).toFixed(1) : '0'}%)`}
-              >
-                <span className="segment-count">{stats.red}</span>
-              </div>
-              <div 
-                className="percentage-segment yellow" 
-                style={{ width: `${stats.total > 0 ? (stats.yellow / stats.total) * 100 : 0}%` }}
-                title={`Yellow: ${stats.yellow} (${stats.total > 0 ? ((stats.yellow / stats.total) * 100).toFixed(1) : '0'}%)`}
-              >
-                <span className="segment-count">{stats.yellow}</span>
-              </div>
-              <div 
-                className="percentage-segment green" 
-                style={{ width: `${stats.total > 0 ? (stats.green / stats.total) * 100 : 0}%` }}
-                title={`Green: ${stats.green} (${stats.total > 0 ? ((stats.green / stats.total) * 100).toFixed(1) : '0'}%)`}
-              >
-                <span className="segment-count">{stats.green}</span>
-              </div>
-            </div>
-            <div className="percentage-bar-legend">
-              <div className="legend-item">
-                <span className="legend-color black"></span>
-                <span className="legend-label">Black</span>
-                <span className="legend-count">{stats.black}</span>
-                <span className="legend-percentage">({stats.total > 0 ? ((stats.black / stats.total) * 100).toFixed(1) : '0'}%)</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-color red"></span>
-                <span className="legend-label">Red</span>
-                <span className="legend-count">{stats.red}</span>
-                <span className="legend-percentage">({stats.total > 0 ? ((stats.red / stats.total) * 100).toFixed(1) : '0'}%)</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-color yellow"></span>
-                <span className="legend-label">Yellow</span>
-                <span className="legend-count">{stats.yellow}</span>
-                <span className="legend-percentage">({stats.total > 0 ? ((stats.yellow / stats.total) * 100).toFixed(1) : '0'}%)</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-color green"></span>
-                <span className="legend-label">Green</span>
-                <span className="legend-count">{stats.green}</span>
-                <span className="legend-percentage">({stats.total > 0 ? ((stats.green / stats.total) * 100).toFixed(1) : '0'}%)</span>
-              </div>
-              <div className="legend-item total">
-                <span className="legend-label">Total</span>
-                <span className="legend-count">{stats.total}</span>
-                <span className="legend-percentage">(100%)</span>
-              </div>
-            </div>
-          </div>
+          <RatingDistributionChart stats={stats} />
+        </div>
+
+        {/* Charts Section */}
+        <div className="charts-section">
+          <RiskDistributionChart results={allResults} />
+          <TimelineChart results={allResults} />
+          <FileTypeChart results={allResults} />
         </div>
 
         {/* Top Systems and File Types - Side by Side */}
@@ -318,31 +239,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareRe
           </div>
         </div>
 
-        {/* High-Risk and Largest Files - Side by Side */}
+        {/* Highest Risk Files */}
         <div className="insights-section">
-          <h2>Potentially Plaintext Creds</h2>
+          <h2>Highest Risk Files</h2>
           <div className="insights-card compact">
-            {credentialsFiles.length > 0 ? (
+            {highestRiskFiles.length > 0 ? (
               <div className="insights-list compact">
-                {credentialsFiles.map((file, index) => (
-                  <div 
-                    key={index} 
+                {highestRiskFiles.map((file, index) => (
+                  <div
+                    key={index}
                     className="insight-item clickable compact"
                     onClick={() => {
                       onNavigateToResults();
                       onSelectFile(file);
                     }}
                   >
-                    <div className={`insight-rank compact rating-${file.rating.toLowerCase()}`}>#{index + 1}</div>
+                    <div className="insight-rank compact">
+                      #{index + 1}
+                    </div>
                     <div className="insight-content">
                       <div className="insight-primary compact">{file.fileName}</div>
-                      <div className="insight-secondary compact">{formatFileSize(file.size)} • {file.rating}</div>
+                      <div className="insight-secondary compact">
+                        <span className={`risk-score-badge risk-bg-${file.riskScore!.level}`}>
+                          {file.riskScore!.total}
+                        </span>
+                        {file.rating} • {file.riskScore!.factors.length} factors
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="no-data">No credential files found</div>
+              <div className="no-data">No risk scores calculated</div>
             )}
           </div>
         </div>

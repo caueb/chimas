@@ -1,36 +1,92 @@
-import { SnafflerJsonData, SnafflerEntry, FileResult, ShareResult, CustomFilter } from '../types';
+import { SnafflerJsonData, SnafflerEntry, FileResult, ShareResult, CustomFilter, DuplicateStats, Stats, ShareInfo } from '../types';
+
+/**
+ * Strip UTF-8 BOM (Byte Order Mark) from string if present.
+ * BOM bytes: 0xEF 0xBB 0xBF appear as \uFEFF at start of string
+ */
+export function stripBOM(content: string): string {
+  if (content.charCodeAt(0) === 0xFEFF) {
+    return content.slice(1);
+  }
+  return content;
+}
+
+/**
+ * Safely parse a date string, returning a fallback for invalid dates.
+ * Invalid dates (including "Invalid Date" from new Date()) return the fallback.
+ *
+ * @param dateString - The date string to parse
+ * @param fallback - Value to return if date is invalid (default: '')
+ * @returns Parsed date as ISO string, or fallback if invalid
+ */
+export function safeParseDate(dateString: string | undefined | null, fallback: string = ''): string {
+  if (!dateString) return fallback;
+
+  try {
+    const date = new Date(dateString);
+    // Check if date is valid (Invalid Date returns NaN for getTime())
+    if (isNaN(date.getTime())) {
+      return fallback;
+    }
+    return dateString; // Return original string if valid (preserves original format)
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Safely get timestamp for sorting. Returns 0 for invalid dates.
+ * Use this instead of new Date(str).getTime() to prevent NaN in sort comparisons.
+ */
+export function safeDateTimestamp(dateString: string | undefined | null): number {
+  if (!dateString) return 0;
+
+  try {
+    const date = new Date(dateString);
+    const timestamp = date.getTime();
+    return isNaN(timestamp) ? 0 : timestamp;
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * Parse the MATCH CONTEXT content to handle escaped characters
- * Enhanced to handle complex Snaffler log patterns
+ * Enhanced to handle complex Snaffler log patterns and Unicode escapes
  */
 function parseMatchContext(matchContext: string): string {
   if (!matchContext) return '';
-  
+
   try {
+    // First, handle Unicode escape sequences (\uXXXX)
+    // This must be done before other escape handling
+    let parsed = matchContext.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => {
+      return String.fromCharCode(parseInt(hex, 16));
+    });
+
     // Handle escape sequences in order of complexity
-    let parsed = matchContext
+    parsed = parsed
       // Handle newlines and carriage returns first
       .replace(/\\r\\n/g, '\n')  // Convert \r\n to actual newlines
       .replace(/\\n/g, '\n')     // Convert \n to actual newlines
       .replace(/\\r/g, '\n')     // Convert \r to newlines
-      
+
       // Handle tabs and spaces
       .replace(/\\t/g, '\t')     // Convert \t to actual tabs
       .replace(/\\ /g, ' ')      // Convert \ (space) to actual spaces
-      
+
       // Handle quotes and backslashes
       .replace(/\\"/g, '"')      // Convert \" to actual quotes
       .replace(/\\\\/g, '\\');   // Convert \\ to actual backslashes
-    
+
     // Only unescape characters that are commonly escaped in text content
     parsed = parsed.replace(/\\([\[\](){}.*+?^$|#<>])/g, '$1');
-    
+
     // Clean up excessive whitespace while preserving newlines
     parsed = parsed
       .replace(/\n\s*\n/g, '\n')  // Remove empty lines
       .trim();
-    
+
     return parsed;
   } catch (error) {
     console.error('Error parsing match context:', error);
@@ -38,7 +94,59 @@ function parseMatchContext(matchContext: string): string {
   }
 }
 
-export function parseSnafflerJson(jsonData: SnafflerJsonData): { results: FileResult[]; duplicateStats?: any } {
+// Type for eventProperties color key structure
+interface ColorKeyData {
+  FileResult?: {
+    FileInfo?: {
+      FullName?: string;
+      Name?: string;
+      CreationTime?: string;
+      CreationTimeUtc?: string;
+      LastWriteTime?: string;
+      LastWriteTimeUtc?: string;
+      LastAccessTime?: string;
+      LastAccessTimeUtc?: string;
+      Length?: number;
+    };
+    TextResult?: {
+      MatchContext?: string;
+      MatchedStrings?: string[];
+    };
+    MatchedRule?: {
+      RuleName?: string;
+      Triage?: string;
+    };
+    RwStatus?: {
+      CanRead?: boolean;
+      CanWrite?: boolean;
+      CanModify?: boolean;
+    };
+  };
+  ShareResult?: {
+    SharePath?: string;
+    ShareComment?: string;
+    ShareName?: string;      // Direct field (may be present)
+    SystemId?: string;       // Direct field (may be present)
+    Listable?: boolean;
+    RootWritable?: boolean;
+    RootReadable?: boolean;
+    RootModifyable?: boolean;
+    Snaffle?: boolean;
+    ScanShare?: boolean;
+    Triage?: string;
+  };
+}
+
+// Type for eventProperties
+interface EventProperties {
+  Red?: ColorKeyData;
+  Green?: ColorKeyData;
+  Yellow?: ColorKeyData;
+  Black?: ColorKeyData;
+  [key: string]: ColorKeyData | undefined;
+}
+
+export function parseSnafflerJson(jsonData: SnafflerJsonData): { results: FileResult[]; duplicateStats?: DuplicateStats } {
   const results: FileResult[] = [];
   const seenEntries = new Set<string>();
 
@@ -66,15 +174,15 @@ export function parseSnafflerJson(jsonData: SnafflerJsonData): { results: FileRe
 function parseJsonFileEntry(entry: SnafflerEntry): FileResult[] {
   const results: FileResult[] = [];
   const debugMode = false; // Set to true for verbose logging
-  
+
   try {
-    // Extract data from eventProperties
-    const eventProps = entry.eventProperties;
-    
+    // Extract data from eventProperties (cast to typed interface)
+    const eventProps = entry.eventProperties as EventProperties;
+
     // Case 1: Check if eventProperties contains structured FileResult data
     if (Object.keys(eventProps).length > 0) {
       // Look for color keys (Red, Green, Yellow, Black) that contain FileResult data
-      const colorKeys = ['Red', 'Green', 'Yellow', 'Black'];
+      const colorKeys: Array<'Red' | 'Green' | 'Yellow' | 'Black'> = ['Red', 'Green', 'Yellow', 'Black'];
       
       for (const colorKey of colorKeys) {
         if (eventProps[colorKey] && eventProps[colorKey].FileResult) {
@@ -103,8 +211,7 @@ function parseJsonFileEntry(entry: SnafflerEntry): FileResult[] {
               rwStatus: fileResult.RwStatus ? {
                 readable: fileResult.RwStatus.CanRead || false,
                 writable: fileResult.RwStatus.CanWrite || false,
-                executable: false, // Not available in this RwStatus object
-                deleteable: fileResult.RwStatus.CanModify || false
+                modifyable: fileResult.RwStatus.CanModify || false
               } : undefined
             };
             
@@ -184,7 +291,7 @@ function parseJsonFileEntry(entry: SnafflerEntry): FileResult[] {
   return results;
 }
 
-export function parseSnafflerText(textData: string): { results: FileResult[]; duplicateStats?: any } {
+export function parseSnafflerText(textData: string): { results: FileResult[]; duplicateStats?: DuplicateStats } {
   const results: FileResult[] = [];
   const seenEntries = new Set<string>();
   const lines = textData.split('\n');
@@ -289,63 +396,68 @@ function parseTextFileLine(line: string): FileResult | null {
   return null;
 }
 
-export function calculateStats(results: FileResult[]): any {
-  const stats = {
+export function calculateStats(results: FileResult[]): Stats {
+  const stats: Stats = {
     total: results.length,
     red: results.filter(r => r.rating === 'Red').length,
     green: results.filter(r => r.rating === 'Green').length,
     yellow: results.filter(r => r.rating === 'Yellow').length,
     black: results.filter(r => r.rating === 'Black').length
   };
-  
+
   return stats;
 }
 
-export function parseSnafflerData(data: any, fileType: 'json' | 'text' | 'log'): { results: FileResult[]; duplicateStats?: any } {
-  let parseResult: { results: FileResult[]; duplicateStats?: any } | undefined;
+export function parseSnafflerData(data: SnafflerJsonData | string | string[], fileType: 'json' | 'text' | 'log'): { results: FileResult[]; duplicateStats?: DuplicateStats } {
+  let parseResult: { results: FileResult[]; duplicateStats?: DuplicateStats } | undefined;
 
   if (fileType === 'json') {
-    parseResult = parseSnafflerJson(data);
+    parseResult = parseSnafflerJson(data as SnafflerJsonData);
   } else {
-    parseResult = parseSnafflerText(data[0]);
+    const textData = Array.isArray(data) ? data[0] : data;
+    parseResult = parseSnafflerText(textData as string);
   }
 
-  if (!parseResult || parseResult.results.length === 0) {
-    throw new Error('Not a valid Snaffler output file, or the file is empty. Please check the file content and try again.');
+  if (!parseResult) {
+    throw new Error('Not a valid Snaffler output file. Please check the file content and try again.');
   }
-
+  // Return empty results if no findings - this is valid (clean environment)
   return parseResult;
 }
 
-export function parseShareData(data: any, fileType: 'json' | 'text' | 'log'): any[] {
-  let shares: any[] = [];
-  const shareMap = new Map<string, { 
-    systemId: string; 
-    shareName: string; 
-    fileCount: number; 
-    permissions: Set<string>;
-    shareComment: string;
-    listable: boolean;
-    rootWritable: boolean;
-    rootReadable: boolean;
-    rootModifyable: boolean;
-    snaffle: boolean;
-    scanShare: boolean;
-    rating: string;
-  }>();
-  
+// Internal share map entry type
+interface ShareMapEntry {
+  systemId: string;
+  shareName: string;
+  fileCount: number;
+  permissions: Set<string>;
+  shareComment: string;
+  listable: boolean;
+  rootWritable: boolean;
+  rootReadable: boolean;
+  rootModifyable: boolean;
+  snaffle: boolean;
+  scanShare: boolean;
+  rating: string;
+}
+
+export function parseShareData(data: SnafflerJsonData | string | string[], fileType: 'json' | 'text' | 'log'): ShareInfo[] {
+  const shares: ShareInfo[] = [];
+  const shareMap = new Map<string, ShareMapEntry>();
+
   // Extract share information from file paths
   let fileResults: FileResult[] = [];
   let shareResults: ShareResult[] = [];
-  
+
   if (fileType === 'json') {
-    const parseResult = parseSnafflerJson(data);
+    const parseResult = parseSnafflerJson(data as SnafflerJsonData);
     fileResults = parseResult.results;
-    shareResults = parseSnafflerShares(data);
+    shareResults = parseSnafflerShares(data as SnafflerJsonData);
   } else {
-    const parseResult = parseSnafflerText(data[0]);
+    const textData = Array.isArray(data) ? data[0] : data;
+    const parseResult = parseSnafflerText(textData as string);
     fileResults = parseResult.results;
-    shareResults = parseSnafflerSharesText(data[0]);
+    shareResults = parseSnafflerSharesText(textData as string);
   }
   
   // First, process direct share entries from [Share] logs
@@ -568,32 +680,33 @@ export function sortResults(
   sortDirection: string
 ): FileResult[] {
   const sorted = [...results].sort((a, b) => {
-    let aValue: any = a[sortField as keyof FileResult];
-    let bValue: any = b[sortField as keyof FileResult];
+    let aValue: string | number = '';
+    let bValue: string | number = '';
 
     // Handle rating sorting (Black > Red > Yellow > Green)
     if (sortField === 'rating') {
-      const ratingOrder = { 'Black': 4, 'Red': 3, 'Yellow': 2, 'Green': 1 };
+      const ratingOrder: Record<string, number> = { 'Black': 4, 'Red': 3, 'Yellow': 2, 'Green': 1 };
       aValue = ratingOrder[a.rating] || 0;
       bValue = ratingOrder[b.rating] || 0;
     }
-
     // Handle size sorting (convert to numbers)
-    if (sortField === 'size') {
-      aValue = parseInt(aValue) || 0;
-      bValue = parseInt(bValue) || 0;
+    else if (sortField === 'size') {
+      aValue = parseInt(a.size) || 0;
+      bValue = parseInt(b.size) || 0;
     }
-
     // Handle date sorting
-    if (sortField === 'creationTime' || sortField === 'lastModified') {
-      aValue = new Date(aValue).getTime();
-      bValue = new Date(bValue).getTime();
+    else if (sortField === 'creationTime' || sortField === 'lastModified') {
+      const aDate = sortField === 'creationTime' ? a.creationTime : a.lastModified;
+      const bDate = sortField === 'creationTime' ? b.creationTime : b.lastModified;
+      aValue = safeDateTimestamp(aDate);
+      bValue = safeDateTimestamp(bDate);
     }
-
-    // Handle string sorting
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
-      aValue = aValue.toLowerCase();
-      bValue = bValue.toLowerCase();
+    // Handle string sorting for other fields
+    else {
+      const rawA = a[sortField as keyof FileResult];
+      const rawB = b[sortField as keyof FileResult];
+      aValue = typeof rawA === 'string' ? rawA.toLowerCase() : String(rawA || '').toLowerCase();
+      bValue = typeof rawB === 'string' ? rawB.toLowerCase() : String(rawB || '').toLowerCase();
     }
 
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
@@ -690,24 +803,33 @@ export function parseSnafflerShares(jsonData: SnafflerJsonData): ShareResult[] {
 function parseJsonShareEntry(entry: SnafflerEntry): ShareResult[] {
   const results: ShareResult[] = [];
   const debugMode = false; // Set to true for verbose logging
-  
+
   try {
-    // Extract data from eventProperties
-    const eventProps = entry.eventProperties;
-    
+    // Extract data from eventProperties (cast to typed interface)
+    const eventProps = entry.eventProperties as EventProperties;
+
     // Look for color keys (Red, Green, Yellow, Black) that contain ShareResult data
-    const colorKeys = ['Red', 'Green', 'Yellow', 'Black'];
-    
+    const colorKeys: Array<'Red' | 'Green' | 'Yellow' | 'Black'> = ['Red', 'Green', 'Yellow', 'Black'];
+
     for (const colorKey of colorKeys) {
-      if (eventProps[colorKey] && eventProps[colorKey].ShareResult) {
-        const shareResult = eventProps[colorKey].ShareResult;
-        
+      const colorData = eventProps[colorKey];
+      if (colorData && colorData.ShareResult) {
+        const shareResult = colorData.ShareResult;
+
         if (shareResult.SharePath) {
-          // Extract system ID and share name from the share path
-          const pathMatch = shareResult.SharePath.match(/\\\\([^\\]+)\\([^\\]+)/);
-          const systemId = pathMatch ? pathMatch[1] : '';
-          const shareName = pathMatch ? pathMatch[2] : '';
-          
+          // Prefer direct fields if available, fall back to regex extraction from path
+          let systemId = shareResult.SystemId || '';
+          let shareName = shareResult.ShareName || '';
+
+          // Fall back to regex extraction if direct fields not present
+          if (!systemId || !shareName) {
+            const pathMatch = shareResult.SharePath?.match(/\\\\([^\\]+)\\([^\\]+)/);
+            if (pathMatch) {
+              systemId = systemId || pathMatch[1];
+              shareName = shareName || pathMatch[2];
+            }
+          }
+
           const result: ShareResult = {
             rating: colorKey as 'Red' | 'Green' | 'Yellow' | 'Black',
             sharePath: shareResult.SharePath || '',

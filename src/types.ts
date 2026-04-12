@@ -2,12 +2,15 @@ export interface SnafflerEntry {
   time: string;
   level: string;
   message: string;
-  eventProperties: any;
+  eventProperties: Record<string, unknown>;
 }
 
 export interface SnafflerJsonData {
   entries: SnafflerEntry[];
 }
+
+// Re-export RiskScore types from riskScoring utility
+export type { RiskScore, RiskFactor } from './utils/riskScoring';
 
 export interface FileResult {
   rating: 'Red' | 'Green' | 'Yellow' | 'Black';
@@ -24,10 +27,10 @@ export interface FileResult {
   rwStatus?: {
     readable: boolean;
     writable: boolean;
-    executable: boolean;
-    deleteable: boolean;
+    modifyable: boolean;
   };
   isFalsePositive?: boolean; // Track if this item is marked as false positive
+  riskScore?: import('./utils/riskScoring').RiskScore; // Calculated risk score
 }
 
 export interface ShareResult {
@@ -59,5 +62,60 @@ export interface CustomFilter {
   text: string;
 }
 
-export type SortField = 'rating' | 'fullPath' | 'creationTime' | 'lastModified' | 'size';
-export type SortDirection = 'asc' | 'desc'; 
+export type SortField = 'rating' | 'fullPath' | 'creationTime' | 'lastModified' | 'size' | 'riskScore';
+export type SortDirection = 'asc' | 'desc';
+
+// Duplicate detection statistics from parser
+export interface DuplicateStats {
+  totalOriginal: number;
+  totalFinal: number;
+  duplicatesRemoved: number;
+  duplicatePercentage: number;
+}
+
+// Error information for file parsing errors
+export interface ErrorInfo {
+  message: string;
+  snippet?: string;
+  errorPosition?: number;
+  fileName?: string;
+  fileType?: 'json' | 'text' | 'log';
+  actualLineNumber?: number;
+  snippetStartLine?: number;
+}
+
+// Column visibility configuration for results table
+export interface VisibleColumns {
+  rating: boolean;
+  fullPath: boolean;
+  creationTime: boolean;
+  lastModified: boolean;
+  size: boolean;
+}
+
+// GPO sort field types
+export type GPODetailsSortField = 'gpo' | 'settingsCount' | 'linked';
+export type GPOResultsSortField = 'gpo' | 'scope' | 'category' | 'entries' | 'findings' | 'severity';
+
+// GPO sorting value union type
+export type GPOSortValue = string | number | boolean | string[] | undefined;
+
+// Re-export GPO types from GPOParser for convenience
+export type { Gpo, GPOReport, GpoHeader, SettingBlock, Finding } from './utils/GPOParser';
+
+// Share info type for processed share data
+export interface ShareInfo {
+  systemId: string;
+  shareName: string;
+  path: string;
+  permissions: string;
+  fileCount: number;
+  shareComment: string;
+  listable: boolean;
+  rootReadable: boolean;
+  rootWritable: boolean;
+  rootModifyable: boolean;
+  snaffle: boolean;
+  scanShare: boolean;
+  rating: string;
+}
