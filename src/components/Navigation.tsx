@@ -1,12 +1,12 @@
 import React from 'react';
-
-type View = 'dashboard' | 'file-results' | 'share-results' | 'GPO-results' | 'GPO-details';
+import { View } from '../utils/constants';
 
 interface NavigationProps {
   currentView: View;
   onViewChange: (view: View) => void;
   hasShareData: boolean;
   hasGPOData: boolean;
+  hasBloodHoundData?: boolean;
   counts?: {
     files?: number;
     filteredFiles?: number;
@@ -15,6 +15,8 @@ interface NavigationProps {
     gpoCount?: number;
   };
 }
+
+// hasBloodHoundData is accepted but not rendered in nav (indicator is in the header)
 
 const formatCount = (count: number): string => {
   if (count >= 1000000) {
@@ -26,7 +28,7 @@ const formatCount = (count: number): string => {
   return count.toString();
 };
 
-export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange, hasShareData, hasGPOData, counts }) => {
+export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange, hasShareData, hasGPOData, hasBloodHoundData, counts }) => {
   return (
     <nav className="navigation">
       <div className="nav-tabs">
@@ -87,6 +89,13 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChang
               {counts?.gpoSettings !== undefined && counts.gpoSettings > 0 && (
                 <span className="nav-badge">{formatCount(counts.gpoSettings)}</span>
               )}
+            </button>
+            <button
+              className={`nav-tab ${currentView === 'misconfigurations' ? 'active' : ''}`}
+              onClick={() => onViewChange('misconfigurations')}
+            >
+              <i className="fas fa-exclamation-triangle"></i>
+              <span>Misconfigurations</span>
             </button>
           </>
         )}

@@ -1,6 +1,7 @@
 import * as ExcelJS from 'exceljs';
 import { FileResult, Stats, ShareInfo } from '../types';
 import { GPOReport } from './GPOParser';
+import { Misconfiguration } from '../types/Misconfiguration';
 
 // -------- Helpers --------
 const safeToNumber = (value: unknown, fallback = 0): number => {
@@ -529,6 +530,190 @@ export async function exportGPOToXLSX(report: GPOReport) {
   const url = URL.createObjectURL(blob);
   link.setAttribute('href', url);
   link.setAttribute('download', `gpo-results-${new Date().toISOString().split('T')[0]}.xlsx`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// -------- Misconfiguration Report Export --------
+
+export interface MisconfigExportData {
+  misconfig: Misconfiguration;
+  secureComputers: number;
+  secureUsers: number;
+  insecureComputers: number;
+  insecureUsers: number;
+  unprotectedComputers: number;
+  unprotectedComputerNames: string[];
+  unprotectedUsers: number;
+  totalComputers: number;
+  totalUsers: number;
+  isDefault: boolean;
+  gpoDetails: string;
+}
+
+export function exportMisconfigurationsToCSV(items: MisconfigExportData[]) {
+  const headers = [
+    'Severity', 'Misconfiguration', 'Description', 'Registry Path', 'Recommended Value',
+    'GPO Count', 'GPOs', 'Secure Computers', 'Insecure Computers', 'Unprotected Computers',
+    'Unprotected Computer Names', 'Total Computers', 'Secure Users', 'Insecure Users',
+    'Unprotected Users', 'Total Users'
+  ];
+
+  const rows = items.map(item => [
+    item.misconfig.severity.toUpperCase(),
+    `"${item.misconfig.name.replace(/"/g, '""')}"`,
+    `"${item.misconfig.description.replace(/"/g, '""')}"`,
+    `"${item.misconfig.registryPath.replace(/"/g, '""')}"`,
+    `"${item.misconfig.recommendedValue.replace(/"/g, '""')}"`,
+    item.misconfig.gpoCount,
+    `"${item.gpoDetails.replace(/"/g, '""')}"`,
+    item.secureComputers,
+    item.insecureComputers,
+    item.unprotectedComputers,
+    `"${item.unprotectedComputerNames.join(', ')}"`,
+    item.totalComputers,
+    item.secureUsers,
+    item.insecureUsers,
+    item.unprotectedUsers,
+    item.totalUsers,
+  ]);
+
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `misconfigurations-report-${new Date().toISOString().split('T')[0]}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+export async function exportMisconfigurationsToXLSX(items: MisconfigExportData[]) {
+  const workbook = new ExcelJS.Workbook();
+
+  // ---- Sheet 1: Summary ----
+  const summarySheet = workbook.addWorksheet('Summary');
+  summarySheet.columns = [
+    { header: 'Misconfigurations Report', key: 'property', width: 30 },
+    { header: '', key: 'value', width: 40 },
+  ];
+  const summaryRows = [
+    { property: 'Export Date', value: new Date().toLocaleString() },
+    { property: 'Total Misconfigurations', value: items.length },
+    { property: 'Critical', value: items.filter(i => i.misconfig.severity === 'critical').length },
+    { property: 'High', value: items.filter(i => i.misconfig.severity === 'high').length },
+    { property: 'Medium', value: items.filter(i => i.misconfig.severity === 'medium').length },
+    { property: 'Low', value: items.filter(i => i.misconfig.severity === 'low').length },
+    { property: 'Info', value: items.filter(i => i.misconfig.severity === 'info').length },
+    { property: 'Total Computers', value: items[0]?.totalComputers ?? 0 },
+    { property: 'Total Users', value: items[0]?.totalUsers ?? 0 },
+  ];
+  for (const row of summaryRows) summarySheet.addRow(row);
+  summarySheet.getRow(1).font = { bold: true };
+
+  // ---- Sheet 2: Misconfigurations ----
+  const miscSheet = workbook.addWorksheet('Misconfigurations');
+  miscSheet.columns = [
+    { header: 'Severity', key: 'severity', width: 12 },
+    { header: 'Misconfiguration', key: 'name', width: 35 },
+    { header: 'Description', key: 'description', width: 50 },
+    { header: 'Registry Path', key: 'registryPath', width: 50 },
+    { header: 'Recommended', key: 'recommended', width: 20 },
+    { header: 'GPOs', key: 'gpoCount', width: 8 },
+    { header: 'GPO Details', key: 'gpoDetails', width: 40 },
+    { header: 'Secure Comp', key: 'secureComp', width: 14 },
+    { header: 'Insecure Comp', key: 'insecureComp', width: 14 },
+    { header: 'Unprotected Comp', key: 'unprotectedComp', width: 16 },
+    { header: 'Total Comp', key: 'totalComp', width: 12 },
+    { header: 'Secure Users', key: 'secureUsers', width: 14 },
+    { header: 'Insecure Users', key: 'insecureUsers', width: 14 },
+    { header: 'Unprotected Users', key: 'unprotectedUsers', width: 16 },
+    { header: 'Total Users', key: 'totalUsers', width: 12 },
+  ];
+
+  const sevColors: Record<string, string> = {
+    critical: 'FFFF0000', high: 'FFFF6600', medium: 'FFFFCC00', low: 'FF4472C4', info: 'FFE0E0E0',
+  };
+
+  for (const item of items) {
+    const row = miscSheet.addRow({
+      severity: item.misconfig.severity.toUpperCase(),
+      name: item.misconfig.name,
+      description: item.misconfig.description,
+      registryPath: item.misconfig.registryPath,
+      recommended: item.misconfig.recommendedValue,
+      gpoCount: item.misconfig.gpoCount,
+      gpoDetails: item.gpoDetails,
+      secureComp: item.secureComputers,
+      insecureComp: item.insecureComputers,
+      unprotectedComp: item.unprotectedComputers,
+      totalComp: item.totalComputers,
+      secureUsers: item.secureUsers,
+      insecureUsers: item.insecureUsers,
+      unprotectedUsers: item.unprotectedUsers,
+      totalUsers: item.totalUsers,
+    });
+
+    const sevCell = row.getCell('severity');
+    const color = sevColors[item.misconfig.severity] || 'FFE0E0E0';
+    sevCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } } as ExcelJS.Fill;
+    sevCell.font = { bold: true, color: { argb: item.misconfig.severity === 'medium' ? 'FF000000' : 'FFFFFFFF' } };
+
+    if (item.unprotectedComputers > 0) {
+      row.getCell('unprotectedComp').font = { bold: true, color: { argb: 'FFFF0000' } };
+    }
+    if (item.unprotectedUsers > 0) {
+      row.getCell('unprotectedUsers').font = { bold: true, color: { argb: 'FFFF0000' } };
+    }
+  }
+
+  miscSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  miscSheet.getRow(1).eachCell(cell => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } } as ExcelJS.Fill;
+  });
+  miscSheet.autoFilter = { from: 'A1', to: { row: 1, column: miscSheet.columns.length } };
+  miscSheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+  // ---- Sheet 3: Unprotected Assets ----
+  const unprotectedSheet = workbook.addWorksheet('Unprotected Assets');
+  unprotectedSheet.columns = [
+    { header: 'Misconfiguration', key: 'misconfig', width: 35 },
+    { header: 'Severity', key: 'severity', width: 12 },
+    { header: 'Unprotected Computer', key: 'computer', width: 40 },
+  ];
+
+  for (const item of items) {
+    if (item.unprotectedComputerNames.length === 0) continue;
+    for (const name of item.unprotectedComputerNames.sort()) {
+      const row = unprotectedSheet.addRow({
+        misconfig: item.misconfig.name,
+        severity: item.misconfig.severity.toUpperCase(),
+        computer: name,
+      });
+      const sevCell = row.getCell('severity');
+      const color = sevColors[item.misconfig.severity] || 'FFE0E0E0';
+      sevCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } } as ExcelJS.Fill;
+      sevCell.font = { bold: true, color: { argb: item.misconfig.severity === 'medium' ? 'FF000000' : 'FFFFFFFF' } };
+    }
+  }
+
+  unprotectedSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  unprotectedSheet.getRow(1).eachCell(cell => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } } as ExcelJS.Fill;
+  });
+  unprotectedSheet.autoFilter = { from: 'A1', to: { row: 1, column: 3 } };
+  unprotectedSheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `misconfigurations-report-${new Date().toISOString().split('T')[0]}.xlsx`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();

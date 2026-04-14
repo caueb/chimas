@@ -1,11 +1,14 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { GPOReport, Gpo } from '../utils/GPOParser';
 import { formatDateLocale } from '../utils/formatting';
 import { LAYOUT } from '../utils/constants';
 import { usePanelLayout, Button, Input, Dropdown } from './shared';
+import type { BloodHoundData, GPOAssetSummary } from '../types/BloodHound';
+import { resolveGPOAssets } from '../utils/bloodhoundParser';
 
 interface GPODetailsProps {
   report: GPOReport;
+  bloodHoundData: BloodHoundData | null;
   search: string;
   setSearch: (search: string) => void;
   linkedFilter: string;
@@ -28,6 +31,7 @@ interface GPODetailsProps {
 
 const GPODetails: React.FC<GPODetailsProps> = ({
   report,
+  bloodHoundData,
   search,
   setSearch,
   linkedFilter,
@@ -255,6 +259,35 @@ const GPODetails: React.FC<GPODetailsProps> = ({
     }
   }, [currentPage, selectedGPO, currentPageData]);
 
+  // Resolve BloodHound assets for selected GPO
+  const selectedGPOAssets: GPOAssetSummary | null = useMemo(() => {
+    if (!bloodHoundData || !selectedGPO?.header.gpoId) return null;
+    return resolveGPOAssets(bloodHoundData, selectedGPO.header.gpoId, selectedGPO.header.links);
+  }, [bloodHoundData, selectedGPO]);
+
+  // Compute asset counts for all GPOs in current page (for table column)
+  const gpoAssetCounts = useMemo(() => {
+    if (!bloodHoundData) return new Map<string, { computers: number; users: number }>();
+    const counts = new Map<string, { computers: number; users: number }>();
+    for (const gpo of report.gpos) {
+      if (!gpo.header.gpoId) continue;
+      const assets = resolveGPOAssets(bloodHoundData, gpo.header.gpoId, gpo.header.links);
+      counts.set(gpo.header.gpoId, { computers: assets.totalComputers, users: assets.totalUsers });
+    }
+    return counts;
+  }, [bloodHoundData, report.gpos]);
+
+  // Collapsible state for asset lists
+  const [expandedAssetSections, setExpandedAssetSections] = useState<Set<string>>(new Set());
+  const toggleAssetSection = (section: string) => {
+    setExpandedAssetSections(prev => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  };
+
   const handleCloseRightPanel = () => {
     setShowRightPanel(false);
     setSelectedGPO(null);
@@ -340,17 +373,22 @@ const GPODetails: React.FC<GPODetailsProps> = ({
                     GPO Name
                   </th>
                   <th className={`settings-count-column ${getSortIcon('settingsCount')}`} onClick={() => handleSort('settingsCount')}>
-                    Settings Count
+                    Settings
                   </th>
                   <th className={`linked-column ${getSortIcon('linked')}`} onClick={() => handleSort('linked')}>
                     Linked
                   </th>
+                  {bloodHoundData && (
+                    <th className="assets-column">
+                      Assets
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {currentPageData.length === 0 ? (
                   <tr>
-                    <td colSpan={3}>
+                    <td colSpan={bloodHoundData ? 4 : 3}>
                       <div className="no-data">No matching GPOs found</div>
                     </td>
                   </tr>
@@ -380,6 +418,18 @@ const GPODetails: React.FC<GPODetailsProps> = ({
                             {isGPOLinked(gpo) ? 'Yes' : 'No'}
                           </span>
                         </td>
+                        {bloodHoundData && (
+                          <td className="assets-cell">
+                            {gpo.header.gpoId && gpoAssetCounts.has(gpo.header.gpoId) ? (
+                              <span className="assets-count">
+                                <i className="fas fa-desktop"></i> {gpoAssetCounts.get(gpo.header.gpoId)!.computers}
+                                <i className="fas fa-user" style={{ marginLeft: 8 }}></i> {gpoAssetCounts.get(gpo.header.gpoId)!.users}
+                              </span>
+                            ) : (
+                              <span className="assets-count no-data">-</span>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     );
                   })
@@ -417,7 +467,7 @@ const GPODetails: React.FC<GPODetailsProps> = ({
       >
         <div className="panel-header">
           <span>GPO Details</span>
-          <Button variant="ghost" className="close-button" onClick={handleCloseRightPanel}>×</Button>
+          <Button variant="ghost" className="close-button" onClick={handleCloseRightPanel} aria-label="Close GPO details">×</Button>
         </div>
         <div className="panel-content">
           {selectedGPO ? (
@@ -519,15 +569,139 @@ const GPODetails: React.FC<GPODetailsProps> = ({
                 <div className="detail-value">{selectedGPO.settings.length}</div>
               </div>
               
-              {/* Show additional header fields */}
+              {/* BloodHound Affected Assets */}
+              {selectedGPOAssets && (selectedGPOAssets.totalComputers > 0 || selectedGPOAssets.totalUsers > 0 || selectedGPOAssets.totalGroups > 0) && (
+                <div className="detail-section bh-assets-section">
+                  <div className="detail-label">
+                    Affected Assets
+                    {selectedGPOAssets.isDomainWide && <span className="bh-domain-badge">Domain-wide</span>}
+                  </div>
+                  <div className="bh-assets-summary">
+                    {selectedGPOAssets.totalComputers > 0 && (
+                      <span className="bh-asset-count"><i className="fas fa-desktop"></i> {selectedGPOAssets.totalComputers} computer{selectedGPOAssets.totalComputers !== 1 ? 's' : ''}</span>
+                    )}
+                    {selectedGPOAssets.totalUsers > 0 && (
+                      <span className="bh-asset-count"><i className="fas fa-user"></i> {selectedGPOAssets.totalUsers} user{selectedGPOAssets.totalUsers !== 1 ? 's' : ''}</span>
+                    )}
+                    {selectedGPOAssets.totalGroups > 0 && (
+                      <span className="bh-asset-count"><i className="fas fa-users"></i> {selectedGPOAssets.totalGroups} group{selectedGPOAssets.totalGroups !== 1 ? 's' : ''}</span>
+                    )}
+                  </div>
+
+                  {/* Group assets by their containing OU */}
+                  {(() => {
+                    // Collect all unique OU names that actually contain assets
+                    const ouNames = new Set<string>();
+                    selectedGPOAssets.computers.forEach(c => ouNames.add(c.ou));
+                    selectedGPOAssets.users.forEach(u => ouNames.add(u.ou));
+                    selectedGPOAssets.groups.forEach(g => ouNames.add(g.ou));
+                    return Array.from(ouNames);
+                  })().map((ouName, ouIdx) => {
+                    const ouComputers = selectedGPOAssets.computers.filter(c => c.ou === ouName);
+                    const ouUsers = selectedGPOAssets.users.filter(u => u.ou === ouName);
+                    const ouGroups = selectedGPOAssets.groups.filter(g => g.ou === ouName);
+                    const ouKey = `ou-${ouIdx}`;
+                    const hasAssets = ouComputers.length > 0 || ouUsers.length > 0 || ouGroups.length > 0;
+                    const directOU = selectedGPOAssets.linkedOUs.find(o => o.name === ouName);
+                    const isInherited = !directOU?.isDirect;
+
+                    return (
+                      <div key={ouIdx} className="bh-ou-group">
+                        <div className="bh-ou-group-header">
+                          <i className="fas fa-sitemap"></i>
+                          <span className="bh-ou-group-name">{ouName}</span>
+                          {isInherited && <span className="bh-ou-inherited">inherited</span>}
+                          {directOU?.isEnforced && <span className="bh-domain-badge">Enforced</span>}
+                        </div>
+                        {hasAssets ? (
+                          <div className="bh-ou-group-assets">
+                            {ouComputers.length > 0 && (
+                              <div className="bh-asset-list-section">
+                                <div className="bh-asset-list-header" onClick={() => toggleAssetSection(`${ouKey}-computers`)}>
+                                  <i className={`fas fa-chevron-${expandedAssetSections.has(`${ouKey}-computers`) ? 'down' : 'right'}`}></i>
+                                  <i className="fas fa-desktop"></i> {ouComputers.length} computer{ouComputers.length !== 1 ? 's' : ''}
+                                </div>
+                                {expandedAssetSections.has(`${ouKey}-computers`) && (
+                                  <div className="bh-asset-list">
+                                    {ouComputers.map((c, i) => (
+                                      <div key={i} className="bh-asset-item">
+                                        <span className="bh-asset-name">{c.name}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {ouUsers.length > 0 && (
+                              <div className="bh-asset-list-section">
+                                <div className="bh-asset-list-header" onClick={() => toggleAssetSection(`${ouKey}-users`)}>
+                                  <i className={`fas fa-chevron-${expandedAssetSections.has(`${ouKey}-users`) ? 'down' : 'right'}`}></i>
+                                  <i className="fas fa-user"></i> {ouUsers.length} user{ouUsers.length !== 1 ? 's' : ''}
+                                </div>
+                                {expandedAssetSections.has(`${ouKey}-users`) && (
+                                  <div className="bh-asset-list">
+                                    {ouUsers.slice(0, 100).map((u, i) => (
+                                      <div key={i} className="bh-asset-item">
+                                        <span className="bh-asset-name">{u.name}</span>
+                                      </div>
+                                    ))}
+                                    {ouUsers.length > 100 && (
+                                      <div className="bh-asset-item bh-asset-more">... and {ouUsers.length - 100} more</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {ouGroups.length > 0 && (
+                              <div className="bh-asset-list-section">
+                                <div className="bh-asset-list-header" onClick={() => toggleAssetSection(`${ouKey}-groups`)}>
+                                  <i className={`fas fa-chevron-${expandedAssetSections.has(`${ouKey}-groups`) ? 'down' : 'right'}`}></i>
+                                  <i className="fas fa-users"></i> {ouGroups.length} group{ouGroups.length !== 1 ? 's' : ''}
+                                </div>
+                                {expandedAssetSections.has(`${ouKey}-groups`) && (
+                                  <div className="bh-asset-list">
+                                    {ouGroups.slice(0, 100).map((g, i) => (
+                                      <div key={i} className="bh-asset-item">
+                                        <span className="bh-asset-name">{g.name}</span>
+                                      </div>
+                                    ))}
+                                    {ouGroups.length > 100 && (
+                                      <div className="bh-asset-item bh-asset-more">... and {ouGroups.length - 100} more</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bh-ou-group-assets">
+                            <span className="bh-ou-empty">No assets in this OU</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {bloodHoundData && selectedGPO.header.gpoId && !selectedGPOAssets?.totalComputers && !selectedGPOAssets?.totalUsers && !selectedGPOAssets?.totalGroups && (
+                <div className="detail-section horizontal">
+                  <div className="detail-label">Affected Assets</div>
+                  <div className="detail-value bh-no-match">No BloodHound match found</div>
+                </div>
+              )}
+
+              {/* Show additional header fields (filter out known fields and leaked link data) */}
               {Object.entries(selectedGPO.header).map(([key, value]) => {
-                if (['gpo', 'gpoId', 'gpoStatus', 'dateCreated', 'dateModified', 'pathInSysvol', 'computerPolicy', 'userPolicy', 'Link', 'links'].includes(key)) {
-                  return null;
-                }
+                const knownKeys = ['gpo', 'gpoId', 'gpoStatus', 'dateCreated', 'dateModified', 'pathInSysvol', 'computerPolicy', 'userPolicy', 'Link', 'links'];
+                if (knownKeys.includes(key)) return null;
+                // Filter out leaked link continuation data (contains OU=/DC= patterns)
+                const strVal = String(value);
+                if (/[,;]?\s*(OU|DC|CN)=/i.test(strVal)) return null;
                 return (
                   <div key={key} className="detail-section horizontal">
                     <div className="detail-label">{key}</div>
-                    <div className="detail-value">{String(value)}</div>
+                    <div className="detail-value">{strVal}</div>
                   </div>
                 );
               })}

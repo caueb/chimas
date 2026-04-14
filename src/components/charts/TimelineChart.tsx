@@ -84,7 +84,7 @@ export const TimelineChart: React.FC<TimelineChartProps> = ({ results, onPeriodC
             <XAxis dataKey="period" tick={{ fontSize: 11 }} />
             <YAxis />
             <Tooltip
-              formatter={(value: number) => [value, 'Files']}
+              formatter={(value) => [value ?? 0, 'Files']}
               contentStyle={{
                 backgroundColor: 'var(--bg-surface)',
                 border: '1px solid var(--border)',

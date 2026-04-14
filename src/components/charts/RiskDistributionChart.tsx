@@ -74,7 +74,7 @@ export const RiskDistributionChart: React.FC<RiskDistributionChartProps> = ({ re
             <XAxis type="number" />
             <YAxis type="category" dataKey="level" />
             <Tooltip
-              formatter={(value: number) => [value, 'Files']}
+              formatter={(value) => [value ?? 0, 'Files']}
               contentStyle={{
                 backgroundColor: 'var(--bg-surface)',
                 border: '1px solid var(--border)',
@@ -84,7 +84,7 @@ export const RiskDistributionChart: React.FC<RiskDistributionChartProps> = ({ re
             <Bar
               dataKey="count"
               cursor="pointer"
-              onClick={(data) => handleClick(data)}
+              onClick={(data) => handleClick(data as unknown as RiskData)}
             >
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />

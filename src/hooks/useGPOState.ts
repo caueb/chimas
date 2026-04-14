@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { GPOReport, Gpo } from '../utils/GPOParser';
 import { GPODetailsSortField, GPOResultsSortField } from '../types';
 import { getStoredPct, setStoredPct } from './useLocalStorage';
+import type { BloodHoundData } from '../types/BloodHound';
 
 // GPO List state interface
 interface GPOListState {
@@ -34,6 +35,12 @@ interface UseGPOState {
   // Core GPO data
   GPOReport: GPOReport | null;
   setGPOReport: (report: GPOReport | null) => void;
+
+  // BloodHound data
+  bloodHoundData: BloodHoundData | null;
+  setBloodHoundData: (data: BloodHoundData | null) => void;
+  isBloodHoundLoaded: boolean;
+  bloodHoundFileCount: number;
 
   // GPO List (GPO Details view) state
   gpoList: GPOListState;
@@ -100,6 +107,15 @@ const initialGPOSettingsState: GPOSettingsState = {
 export function useGPOState(): UseGPOState {
   // Core GPO data
   const [GPOReport, setGPOReport] = useState<GPOReport | null>(null);
+
+  // BloodHound data
+  const [bloodHoundData, setBloodHoundData] = useState<BloodHoundData | null>(null);
+  const isBloodHoundLoaded = useMemo(() => {
+    return bloodHoundData !== null && bloodHoundData.loadedTypes.size > 0;
+  }, [bloodHoundData]);
+  const bloodHoundFileCount = useMemo(() => {
+    return bloodHoundData?.loadedTypes.size ?? 0;
+  }, [bloodHoundData]);
 
   // GPO List state (GPO Details view)
   const [gpoList, setGpoList] = useState<GPOListState>(initialGPOListState);
@@ -206,6 +222,7 @@ export function useGPOState(): UseGPOState {
   // Clear all GPO state
   const clearGPOState = useCallback(() => {
     setGPOReport(null);
+    setBloodHoundData(null);
     setGpoList(initialGPOListState);
     setGpoSettings(initialGPOSettingsState);
   }, []);
@@ -214,6 +231,12 @@ export function useGPOState(): UseGPOState {
     // Core GPO data
     GPOReport,
     setGPOReport,
+
+    // BloodHound data
+    bloodHoundData,
+    setBloodHoundData,
+    isBloodHoundLoaded,
+    bloodHoundFileCount,
 
     // GPO List state
     gpoList,

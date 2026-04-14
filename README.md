@@ -1,98 +1,71 @@
-# Chimas 
+# Chimas
 
-A web application to parse and analyse Snaffler & Group3r (thanks [perrc](https://github.com/perrc)) output providing filtering capabilities in a nice interactive interface.  
-Go checkout [Snaffler](https://github.com/SnaffCon/Snaffler)! *Chimas works best with Snaffler JSON output.*   
-Go checkout [Group3r](https://github.com/Group3r/Group3r)!
+A web application for analysing [Snaffler](https://github.com/SnaffCon/Snaffler) and [Group3r](https://github.com/Group3r/Group3r) output with interactive filtering and BloodHound integration.
 
-## Features
+Also check out [group3r-python](https://github.com/caueb/group3r-python) — a Python port of Group3r for cross-platform use.
 
-### Interactive Dashboard
-- **Clickable Insights**: Navigate directly to filtered results from dashboard statistics
-- **System & Share Filtering**: Quick access to specific systems or shares
-- **File Extension Analysis**: Identify and filter by file types
-![Dashboard](./imgs/DashboardScreenshot.png)
+## Snaffler Analysis
 
-### Results Table 
-- **Details Panel**: Quick view of file contents and metadata without leaving the interface
-  - **Regex Highlighting**: Matched patterns are highlighted in the match context
-  - **File Permissions**: Visual indicators for read, write, execute, and delete permissions
-- **Keyboard Navigation**: Use arrow keys to navigate through table rows
-- **False Positive Marking**: 
-  - Mark files as false positives to exclude them from analysis
-  - Press `F` to toggle false positive status on selected item
-  - False positive items are automatically excluded from CSV exports
-- **Filtering System**:
-  - **Quick Filters**: Filter by severity rating (Red, Yellow, Green, Black)
-  - **File Extension Filter**: Target specific file types for analysis
-  - **Text Exclude Filter**: Remove unwanted results with custom text filters
-  - **Search Functionality**: Find files, paths, or content quickly
-- **Column Visibility**: Show/hide columns to focus on relevant data
-- **CSV Export**: Export filtered results to CSV for external analysis (excludes false positives)
-![FileResults](./imgs/FileResultsScreenshot.png)
+- Dashboard with file rating distribution, risk scoring, and top findings
+- Filterable results table with severity, file type, and keyword search
+- Detail panel with match context highlighting and file metadata
+- False positive marking (excluded from exports)
+- Export to CSV / XLSX
+![Dashboard](./imgs/SnafflerFileResults.png)
+
+
+## Group3r Analysis
+
+- GPO inventory with settings, link status, and findings
+- Security misconfiguration detection (SMB signing, LLMNR, IPv6, LDAP, cached credentials, etc.)
+- BloodHound data integration to map GPOs to affected computers and users
+- GPO precedence resolution for conflicting settings
+- Unprotected asset identification per misconfiguration
+- Export misconfigurations report to CSV / XLSX with affected asset lists
+![Group3rDashboard](./imgs/Group3rDashboard.png)
 
 ## Installation
 
-1. **Clone the repository:**
 ```bash
 git clone https://github.com/caueb/chimas.git
 cd chimas
-```
-
-2. **Install dependencies:**
-```bash
 npm install
-```
-
-3. **Start the development server:**
-```bash
 npm run dev
 ```
 
-4. **Open your browser** and navigate to [http://localhost:3000](http://localhost:3000)
-
-## Last updates
-### August 2025
-- Drag-and-drop file upload
-- Panel resizing, and unified export to CSV/XLSX are also added for all data views (these may need work for best presenting the GPO data).
-- Added keyboard navigation to GPO table.
-- Fixed fontawesome dependency.
-- Include matchcontext in the file exports.
-- Added GPO List view to Group3r analysis and more details in the selected setting.
-
-### July 2025
-- Export to XLSX
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Snaffler Output
-Chimas currently supports Snaffler output in JSON & TXT/LOG format (but it works best with JSON). An example of how to generate Snaffler JSON output is shown below:
+
+Chimas works best with Snaffler JSON output:
+
 ```powershell
 Snaffler.exe -s -t JSON -o snaffler.json
 ```
 
-Occasionally Snaffler may crash or terminate unexpectedly, leaving the JSON output in an invalid format. Instead of a single JSON object with an `"entries"` array, the file may contain one JSON object per line without commas or closing brackets.  
-Example of broken output:
-```json
-{ "time": "2025-09-02 18:26:43.7248", "level": "foo", "message": "..." }
-{ "time": "2025-09-02 18:27:43.7248", "level": "bar", "message": "..." }
-```
-Expected format:
-```json
-{ "entries": [
-  { "time": "2025-09-02 18:26:43.7248", "level": "foo", "message": "..." },
-  { "time": "2025-09-02 18:27:43.7248", "level": "foo", "message": "..." }
-]}
-```
+If Snaffler crashes and leaves broken JSON (one object per line), repair with:
 
-You can repair the file using jq:
 ```bash
 jq -s '{entries: .}' snaffler.json > snaffler-fixed.json
 ```
-This wraps the objects into a valid JSON array and adds commas between entries.  
-Then you can load `snaffler-fixed.json` into Chimas.
 
+## Group3r + BloodHound Integration
 
-# Disclaimer
+After loading Group3r data, click **BloodHound** in the header to load BloodHound JSON exports. Required files: `gpos`, `ous`, `domains`, `computers`, `users`.
 
-This project was primarily generated with the assistance of AI tools and may contain code that has not been thoroughly reviewed or tested. It is not intended for use in production environments without proper validation, security review, and testing. Use at your own risk.
+This enables:
+- Per-GPO asset counts in the GPO List
+- At-risk vs secured computer breakdown per misconfiguration
+- GPO precedence conflict resolution
+- Expandable computer lists with copy-to-clipboard
 
-# Credits
-- Thanks to [perrc](https://github.com/perrc), chimas can now parse and display Group3r output.
+## Disclaimer
+
+This project was primarily generated with the assistance of AI tools and may contain code that has not been thoroughly reviewed or tested. Use at your own risk.
+
+## Credits
+- Thanks to [perrc](https://github.com/perrc) for Group3r parsing support.
+- [Snaffler](https://github.com/SnaffCon/Snaffler) — SMB share enumeration and file triage
+- [Group3r](https://github.com/Group3r/Group3r) — Active Directory GPO auditing
+- [BloodHound](https://github.com/BloodHoundAD/BloodHound) — AD relationship mapping
+

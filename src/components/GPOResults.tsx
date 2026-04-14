@@ -54,13 +54,11 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 
 	// Panel layout using shared hook (replaces inline panel sizing logic)
 	const [panelState, panelActions] = usePanelLayout({ storageKeyPrefix: 'layout:gpo' });
-	const { leftPanelWidthPx, rightPanelWidthPx, isLeftPanelMinimized, draggingSide } = panelState;
-	const { toggleLeftPanel, startDragging } = panelActions;
+	const { leftPanelWidthPx, rightPanelWidthPx, isLeftPanelMinimized, showRightPanel, draggingSide } = panelState;
+	const { setShowRightPanel, toggleLeftPanel, startDragging } = panelActions;
 
 	const tableRef = useRef<HTMLTableElement>(null);
 	const tableWrapperRef = useRef<HTMLDivElement>(null);
-
-	const showRightPanel = selectedIndex !== null;
 
 	// Handle click outside to close export dropdown
 	useEffect(() => {
@@ -316,7 +314,7 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 			</div>
 
 			<div 
-				className={`center-panel ${isLeftPanelMinimized ? 'expanded' : ''} ${selectedIndex !== null ? 'with-right-panel' : ''}`}
+				className={`center-panel ${isLeftPanelMinimized ? 'expanded' : ''} ${showRightPanel ? 'with-right-panel' : ''}`}
 				style={{ left: isLeftPanelMinimized ? 50 : leftPanelWidthPx, right: showRightPanel ? rightPanelWidthPx : 0 }}
 			>
 				<div className="table-container">
@@ -402,7 +400,7 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 											}, undefined);
 											const displaySeverity = maxType || 'INFO';
 											return (
-												<tr key={item.index} className={selectedIndex === item.index ? 'selected' : ''} onClick={() => setSelectedIndex(item.index)}>
+												<tr key={item.index} className={selectedIndex === item.index ? 'selected' : ''} onClick={() => { setSelectedIndex(item.index); setShowRightPanel(true); }}>
 													<td className="rating-cell"><span className={`rating ${String(displaySeverity).toLowerCase()}`}>{displaySeverity}</span></td>
 													<td className="path-cell"><div className="path">{item.gpoTitle}</div></td>
 													<td className="path-cell">{item.scope || '-'}</td>
@@ -440,12 +438,12 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 				</div>
 			</div>
 			<div 
-				className={`right-panel ${selectedIndex === null ? 'hidden' : ''}`}
+				className={`right-panel ${!showRightPanel ? 'hidden' : ''}`}
 				style={{ width: rightPanelWidthPx }}
 			>
 				<div className="panel-header">
 					<span>Details</span>
-					<Button variant="ghost" className="close-button" onClick={() => setSelectedIndex(null)}>×</Button>
+					<Button variant="ghost" className="close-button" onClick={() => { setSelectedIndex(null); setShowRightPanel(false); }} aria-label="Close details">×</Button>
 				</div>
 				<div className="panel-content">
 					{selectedIndex !== null ? (() => {
@@ -474,38 +472,46 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 									</div>
 								)}
 								<div className="detail-section">
-									<div className="detail-label">Entries</div>
+									<div className="detail-label">Entries ({Object.keys(item.entries).length})</div>
 									<div className="detail-value">
 										{Object.keys(item.entries).length === 0 ? (
-											<span>-</span>
+											<span className="detail-empty">No entries</span>
 										) : (
-											<ul>
+											<div className="detail-kv-list">
 												{Object.entries(item.entries).map(([k, v]) => (
-													<li key={k}><strong>{k}:</strong> <span dangerouslySetInnerHTML={{__html: v.replace(/\n/g, '<br>')}} /></li>
+													<div key={k} className="detail-kv-row">
+														<span className="detail-kv-key">{k}</span>
+														<span className="detail-kv-val" dangerouslySetInnerHTML={{__html: v.replace(/\n/g, '<br>')}} />
+													</div>
 												))}
-											</ul>
+											</div>
 										)}
 									</div>
 								</div>
-								<div className="detail-section">
-									<div className="detail-label">Findings</div>
-									<div className="detail-value">
-										{item.findings.length === 0 ? (
-											<span>-</span>
-										) : (
-											<ul>
+								{item.findings.length > 0 && (
+									<div className="detail-section">
+										<div className="detail-label">Findings ({item.findings.length})</div>
+										<div className="detail-value">
+											<div className="detail-findings-list">
 												{item.findings.map((f, i) => (
-													<li key={i}>
-														{f.type ? (<span className={`rating ${String(f.type).toLowerCase()}`}>{f.type}</span>) : null} {f.reason || ''}
-														{f.detail && (
-															<div className="finding-detail">{f.detail}</div>
+													<div key={i} className={`detail-finding-card ${(f.type || 'info').toLowerCase()}`}>
+														<div className="detail-finding-header">
+															{f.type && (
+																<span className={`rating ${String(f.type).toLowerCase()}`}>{f.type}</span>
+															)}
+														</div>
+														{f.reason && (
+															<div className="detail-finding-reason">{f.reason}</div>
 														)}
-													</li>
+														{f.detail && (
+															<div className="detail-finding-detail">{f.detail}</div>
+														)}
+													</div>
 												))}
-											</ul>
-										)}
+											</div>
+										</div>
 									</div>
-								</div>
+								)}
 								{item.findings.length > 1 && (
 									<div className="detail-section horizontal">
 										<div className="detail-label">Max Severity</div>

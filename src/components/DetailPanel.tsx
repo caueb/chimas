@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FileResult } from '../types';
 import { formatFileSize, formatDate } from '../utils/formatting';
-import { CREDENTIALS_KEYWORDS } from '../utils/constants';
+import { CREDENTIALS_KEYWORDS, SNAFF_CREDS_KEYWORDS } from '../utils/constants';
 import { QuickActions } from './QuickActions';
 
 interface DetailPanelProps {
@@ -33,28 +33,43 @@ const RISK_FACTOR_TOOLTIPS: Record<string, string> = {
 const highlightCredentialKeywords = (text: string): React.ReactNode => {
   if (!text) return text;
 
-  // Create regex pattern from keywords (case-insensitive)
+  const lowerText = text.toLowerCase();
+
+  // If ANY skip keyword appears anywhere in the full text, do not highlight at all
+  const shouldSkipHighlighting = SNAFF_CREDS_KEYWORDS.some(sk =>
+    lowerText.includes(sk.toLowerCase())
+  );
+
+  if (shouldSkipHighlighting) return text;
+
+  const escaped = CREDENTIALS_KEYWORDS.map(k =>
+    k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  );
+
+  // Highlight keyword + suffix (Password123, password_foo, etc.)
   const pattern = new RegExp(
-    `(${CREDENTIALS_KEYWORDS.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
-    'gi'
+    `(${escaped.map(k => `${k}\\w*`).join("|")})`,
+    "gi"
   );
 
   const parts = text.split(pattern);
 
   return parts.map((part, index) => {
-    const isKeyword = CREDENTIALS_KEYWORDS.some(
-      keyword => part.toLowerCase() === keyword.toLowerCase()
+    const isMatch = CREDENTIALS_KEYWORDS.some(
+      k => part.toLowerCase().startsWith(k.toLowerCase())
     );
-    if (isKeyword) {
-      return (
-        <mark key={index} className="credential-highlight">
-          {part}
-        </mark>
-      );
-    }
-    return part;
+
+    return isMatch ? (
+      <mark key={index} className="credential-highlight">
+        {part}
+      </mark>
+    ) : (
+      part
+    );
   });
 };
+
+
 
 export const DetailPanel: React.FC<DetailPanelProps> = ({ selectedResult, onClose, onToggleFalsePositive, falsePositives }) => {
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);

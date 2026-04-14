@@ -372,7 +372,7 @@ export const FileResultsView: React.FC<FileResultsViewProps> = ({
       >
         <div className="panel-header">
           <span>Details</span>
-          <Button variant="ghost" className="close-button" onClick={handleCloseRightPanel}>
+          <Button variant="ghost" className="close-button" onClick={handleCloseRightPanel} aria-label="Close details panel">
             ×
           </Button>
         </div>

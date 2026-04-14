@@ -66,6 +66,11 @@ export const CREDENTIALS_KEYWORDS = [
   'clientsecret',
 ] as const;
 
+// Snaffler strings that indicate credentials or secrets e.g. HasPassword,LookNearbyFor.txtFiles
+export const SNAFF_CREDS_KEYWORDS = [
+  'HasPassword', 'LookNearbyFor.txtFiles'
+] as const;
+
 // Rating severity order for sorting (Black is most severe)
 export const RATING_ORDER: Record<string, number> = {
   Black: 4,
@@ -87,4 +92,25 @@ export type View =
   | 'file-results'
   | 'share-results'
   | 'GPO-results'
-  | 'GPO-details';
+  | 'GPO-details'
+  | 'misconfigurations';
+
+// Severity types for misconfiguration findings
+// 'info' = properly configured (for coverage verification via BloodHound)
+export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+
+export const SEVERITY_COLORS: Record<Severity, { badge: string; text: string }> = {
+  critical: { badge: '#dc2626', text: '#ffffff' },
+  high: { badge: '#ea580c', text: '#ffffff' },
+  medium: { badge: '#ca8a04', text: '#000000' },
+  low: { badge: '#2563eb', text: '#ffffff' },
+  info: { badge: '#22c55e', text: '#ffffff' },  // Green for properly configured
+};
+
+export const SEVERITY_ORDER: Record<Severity, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+  info: 4,
+};
