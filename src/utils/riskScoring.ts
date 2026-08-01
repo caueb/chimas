@@ -1,5 +1,5 @@
 import { FileResult } from '../types';
-import { CREDENTIALS_KEYWORDS } from './constants';
+import { CREDENTIALS_KEYWORDS, SNAFF_CREDS_KEYWORDS } from './constants';
 import { safeDateTimestamp } from './parser';
 
 export interface RiskFactor {
@@ -253,6 +253,12 @@ function getCredentialScore(result: FileResult): number {
   );
 
   if (matchedKeywords.length === 0) return 0;
+
+  // if matched keyword in SNAFF_CREDS_KEYWORDS, return 0 points
+  const snaffMatched = SNAFF_CREDS_KEYWORDS.filter(keyword =>
+    searchText.includes(keyword.toLowerCase())
+  );
+  if (snaffMatched.length > 0) return 0;
 
   // Base 20 points for any credential match, +5 for each additional
   return Math.min(20 + (matchedKeywords.length - 1) * 5, 35);

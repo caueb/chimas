@@ -1,6 +1,6 @@
 import React from 'react';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'pagination' | 'action';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'pagination' | 'action' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps {
@@ -19,16 +19,12 @@ interface ButtonProps {
  * Shared Button component for consistent styling across all views.
  *
  * Variants:
- * - primary: Accent-colored action buttons (export, apply)
- * - secondary: Neutral buttons with border (browse, cancel)
- * - ghost: Minimal style for inline actions (close, clear)
- * - pagination: Page navigation buttons with active state
- * - action: Standard action buttons with icon support
- *
- * Sizes:
- * - sm: Compact (pagination, inline actions)
- * - md: Default size
- * - lg: Prominent actions (file upload)
+ * - primary: Accent-filled action buttons
+ * - secondary: Neutral bordered buttons
+ * - ghost: Minimal inline actions
+ * - pagination: Page controls with active state
+ * - action: Standard toolbar actions
+ * - danger: Destructive hover treatment
  */
 export const Button: React.FC<ButtonProps> = ({
   variant = 'secondary',
@@ -41,45 +37,38 @@ export const Button: React.FC<ButtonProps> = ({
   title,
   type = 'button',
 }) => {
-  const getVariantClass = (): string => {
-    switch (variant) {
-      case 'primary':
-        return 'action-button';
-      case 'secondary':
-        return 'browse-button';
-      case 'ghost':
-        return 'ghost-button';
-      case 'pagination':
-        return 'pagination-button';
-      case 'action':
-        return 'action-button';
-      default:
-        return 'browse-button';
-    }
-  };
+  const classes: string[] = ['btn'];
 
-  const getSizeClass = (): string => {
-    switch (size) {
-      case 'sm':
-        return 'button-sm';
-      case 'lg':
-        return 'large-button';
-      default:
-        return '';
-    }
-  };
+  switch (variant) {
+    case 'primary':
+      classes.push('btn-primary');
+      break;
+    case 'ghost':
+      classes.push('ghost-button');
+      break;
+    case 'pagination':
+      classes.push('pagination-button');
+      break;
+    case 'action':
+      classes.push('action-button');
+      break;
+    case 'danger':
+      classes.push('btn-danger', 'action-button');
+      break;
+    case 'secondary':
+    default:
+      break;
+  }
 
-  const variantClass = getVariantClass();
-  const sizeClass = getSizeClass();
-  const activeClass = active ? 'active' : '';
-  const combinedClassName = [variantClass, sizeClass, activeClass, className]
-    .filter(Boolean)
-    .join(' ');
+  if (size === 'sm') classes.push('btn-sm', 'button-sm');
+  if (size === 'lg') classes.push('large-button');
+  if (active) classes.push('active');
+  if (className) classes.push(className);
 
   return (
     <button
       type={type}
-      className={combinedClassName}
+      className={classes.filter(Boolean).join(' ')}
       onClick={onClick}
       disabled={disabled}
       title={title}

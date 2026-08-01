@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 
 interface FileUploadProps {
-  onFileUpload: (data: any, fileType: 'json' | 'text' | 'log', fileName: string, fileSize?: string) => void;
-  onReset: () => void;
-  loadedFileName: string;
   onThemeToggle: () => void;
-  isDarkTheme: boolean;
   onProcessFile?: (file: File) => void;
 }
 
-export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, onReset, loadedFileName, onThemeToggle, isDarkTheme, onProcessFile }) => {
+export const FileUpload: React.FC<FileUploadProps> = ({
+  onThemeToggle,
+  onProcessFile,
+}) => {
   const [isDragging, setIsDragging] = useState(false);
 
   const preventDefaults = (e: React.DragEvent) => {
@@ -46,34 +45,63 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, onReset, l
   return (
     <div className="file-upload-container">
       <div className="theme-toggle-top">
-        <div className="theme-toggle-switch" onClick={onThemeToggle}>
+        <div
+          className="theme-toggle-switch"
+          onClick={onThemeToggle}
+          role="button"
+          tabIndex={0}
+          aria-label="Toggle theme"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') onThemeToggle();
+          }}
+        >
           <i className="fas fa-moon sun-icon"></i>
           <i className="fas fa-sun moon-icon"></i>
         </div>
       </div>
-      
-      <div 
-        className={`landing-description ${isDragging ? 'drag-active' : ''}`}
+
+      <div
+        className={`landing-description card ${isDragging ? 'drag-active' : ''}`}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
         <div className="description-content">
-          <div className="chimas-title">Chimas</div>
-          <p className="chimas-tagline">Sipping secrets from SMB shares and GPOs, one credential at a time.</p>
-          <p>A powerful tool for analyzing and exploring Snaffler / Group3r output data. Upload your Snaffler / Group3r output to discover potential security findings, analyze file permissions, and explore network shares.</p>
-          
-          <div className="landing-actions">
-            <button className="action-button browse-button" onClick={() => document.getElementById('file-input')?.click()}>
+          <div className="path-label">/HOME</div>
+          <h1 className="hero-title chimas-title">chimas</h1>
+
+          <div className="tags">
+            <span className="tag">Snaffler</span>
+            <span className="tag">File Shares</span>
+            <span className="tag">Credentials</span>
+          </div>
+          <p className="description-body">
+            Load Snaffler output to search for sensitive data in file shares. Use the filters to help you with the creds hunt.
+          </p>
+          <div className="tags">
+            <span className="tag">Group3r</span>
+            <span className="tag">GPO</span>
+            <span className="tag">BloodHound</span>
+          </div>
+          <p className="description-body">
+            Load Group3r output to analyse GPOs and its settings. Import Bloodhound data to create a mapping of GPO to affected object.
+          </p>
+          <div className="btn-row landing-actions">
+            <button
+              className="btn btn-primary"
+              onClick={() => document.getElementById('file-input')?.click()}
+              type="button"
+            >
               <i className="fas fa-upload button-icon"></i>
-              Browse Files
+              Load File
             </button>
           </div>
-          
-          <p className="upload-hint">Use the "Browse Files" or drag and drop your Snaffler / Group3r output file here.</p>
+          <p className="upload-hint">
+            Drop a Snaffler or Group3r output file here, or use Load File.
+          </p>
         </div>
       </div>
     </div>
   );
-}; 
+};

@@ -92,7 +92,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         </div>
 
         {showBackToTop && onBackToTop && (
-          <button className="back-to-top-button" onClick={onBackToTop}>
+          <button type="button" className="btn back-to-top-button" onClick={onBackToTop}>
             <i className="fas fa-arrow-up"></i>
             Back to Top
           </button>
@@ -100,7 +100,8 @@ export const Pagination: React.FC<PaginationProps> = ({
 
         <div className="pagination-buttons">
           <button
-            className="pagination-button"
+            type="button"
+            className="btn pagination-button"
             onClick={() => onPageChange(1)}
             disabled={currentPage === 1}
             title="First page"
@@ -108,7 +109,8 @@ export const Pagination: React.FC<PaginationProps> = ({
             «
           </button>
           <button
-            className="pagination-button"
+            type="button"
+            className="btn pagination-button"
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage === 1}
             title="Previous page"
@@ -118,8 +120,9 @@ export const Pagination: React.FC<PaginationProps> = ({
 
           {getPageNumbers().map((pageNum) => (
             <button
+              type="button"
               key={pageNum}
-              className={`pagination-button ${currentPage === pageNum ? 'active' : ''}`}
+              className={`btn pagination-button ${currentPage === pageNum ? 'active' : ''}`}
               onClick={() => onPageChange(pageNum)}
             >
               {pageNum}
@@ -127,7 +130,8 @@ export const Pagination: React.FC<PaginationProps> = ({
           ))}
 
           <button
-            className="pagination-button"
+            type="button"
+            className="btn pagination-button"
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
             title="Next page"
@@ -135,7 +139,8 @@ export const Pagination: React.FC<PaginationProps> = ({
             ›
           </button>
           <button
-            className="pagination-button"
+            type="button"
+            className="btn pagination-button"
             onClick={() => onPageChange(totalPages)}
             disabled={currentPage === totalPages}
             title="Last page"

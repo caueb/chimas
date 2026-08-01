@@ -268,14 +268,35 @@ export interface InfoLine {
       const links: string[] = [];
       
       // Convert rows into header fields
+      let lastHeaderKey: string | undefined;
       for (const r of headerRows) {
         if (r.length < 2) continue;
-        const key = r[0].toLowerCase();
+        const key = r[0].toLowerCase().trim();
         const val = r[1];
+
+        // Handle continuation rows (empty first cell = append to previous field)
+        if (!key && lastHeaderKey) {
+          if (lastHeaderKey === 'link') {
+            // Continuation of a link value — append to the last link
+            // Strip trailing hyphen from previous part (Group3r text-wrapping artifact)
+            if (links.length > 0) {
+              const prev = links[links.length - 1].replace(/-\s*$/, '');
+              const cont = val.trim();
+              // Add space before continuation if it starts with '(' (status part)
+              links[links.length - 1] = cont.startsWith('(') ? prev + ' ' + cont : prev + cont;
+            }
+          } else if (lastHeaderKey in header) {
+            const prevVal = String(header[lastHeaderKey] || '').replace(/-\s*$/, '');
+            header[lastHeaderKey] = prevVal + val.trim();
+          }
+          continue;
+        }
+
         if (key.startsWith("gpo")) {
+          lastHeaderKey = 'gpo';
           // Parse GPO name, ID, and status
           const trimmedVal = val.trim();
-          const gpoMatch = trimmedVal.match(/^(.+?)\s+(\{[A-F0-9-]+\})\s+(Current|Morphed)$/);
+          const gpoMatch = trimmedVal.match(/^(.+?)\s+(\{[A-Fa-f0-9-]+\})\s+(Current|Morphed)$/);
           if (gpoMatch) {
             header.gpo = gpoMatch[1].trim(); // Clean name
             header.gpoId = gpoMatch[2]; // GUID
@@ -285,15 +306,16 @@ export interface InfoLine {
             header.gpo = trimmedVal;
           }
         }
-        else if (key.startsWith("date created")) header.dateCreated = val.trim();
-        else if (key.startsWith("date modified")) header.dateModified = val.trim();
-        else if (key.startsWith("path in sysvol")) header.pathInSysvol = val.trim();
-        else if (key.startsWith("computer policy")) header.computerPolicy = val.trim();
-        else if (key.startsWith("user policy")) header.userPolicy = val.trim();
+        else if (key.startsWith("date created")) { header.dateCreated = val.trim(); lastHeaderKey = 'dateCreated'; }
+        else if (key.startsWith("date modified")) { header.dateModified = val.trim(); lastHeaderKey = 'dateModified'; }
+        else if (key.startsWith("path in sysvol")) { header.pathInSysvol = val.trim(); lastHeaderKey = 'pathInSysvol'; }
+        else if (key.startsWith("computer policy")) { header.computerPolicy = val.trim(); lastHeaderKey = 'computerPolicy'; }
+        else if (key.startsWith("user policy")) { header.userPolicy = val.trim(); lastHeaderKey = 'userPolicy'; }
         else if (key.startsWith("link")) {
           links.push(val.trim());
+          lastHeaderKey = 'link';
         }
-        else header[r[0]] = val.trim();
+        else { header[r[0]] = val.trim(); lastHeaderKey = r[0]; }
       }
       
       // Store all links in the header

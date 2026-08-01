@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { FileResult } from '../types';
 import { formatFileSize, formatDate } from '../utils/formatting';
-import { CREDENTIALS_KEYWORDS } from '../utils/constants';
-import { QuickActions } from './QuickActions';
+import { CREDENTIALS_KEYWORDS, SNAFF_CREDS_KEYWORDS } from '../utils/constants';
 
 interface DetailPanelProps {
   selectedResult: FileResult | null;
@@ -33,28 +32,43 @@ const RISK_FACTOR_TOOLTIPS: Record<string, string> = {
 const highlightCredentialKeywords = (text: string): React.ReactNode => {
   if (!text) return text;
 
-  // Create regex pattern from keywords (case-insensitive)
+  const lowerText = text.toLowerCase();
+
+  // If ANY skip keyword appears anywhere in the full text, do not highlight at all
+  const shouldSkipHighlighting = SNAFF_CREDS_KEYWORDS.some(sk =>
+    lowerText.includes(sk.toLowerCase())
+  );
+
+  if (shouldSkipHighlighting) return text;
+
+  const escaped = CREDENTIALS_KEYWORDS.map(k =>
+    k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  );
+
+  // Highlight keyword + suffix (Password123, password_foo, etc.)
   const pattern = new RegExp(
-    `(${CREDENTIALS_KEYWORDS.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
-    'gi'
+    `(${escaped.map(k => `${k}\\w*`).join("|")})`,
+    "gi"
   );
 
   const parts = text.split(pattern);
 
   return parts.map((part, index) => {
-    const isKeyword = CREDENTIALS_KEYWORDS.some(
-      keyword => part.toLowerCase() === keyword.toLowerCase()
+    const isMatch = CREDENTIALS_KEYWORDS.some(
+      k => part.toLowerCase().startsWith(k.toLowerCase())
     );
-    if (isKeyword) {
-      return (
-        <mark key={index} className="credential-highlight">
-          {part}
-        </mark>
-      );
-    }
-    return part;
+
+    return isMatch ? (
+      <mark key={index} className="credential-highlight">
+        {part}
+      </mark>
+    ) : (
+      part
+    );
   });
 };
+
+
 
 export const DetailPanel: React.FC<DetailPanelProps> = ({ selectedResult, onClose, onToggleFalsePositive, falsePositives }) => {
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
@@ -144,28 +158,36 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ selectedResult, onClos
         <div className="detail-value">{selectedResult.ruleName}</div>
       </div>
 
-      {selectedResult.rwStatus && (
+      {selectedResult.rwStatus &&
+        (selectedResult.rwStatus.readable ||
+          selectedResult.rwStatus.writable ||
+          selectedResult.rwStatus.modifyable) && (
         <div className="detail-section">
           <div className="detail-label">FILE PERMISSIONS</div>
           <div className="detail-value-container">
             <div className="detail-value">
               <div className="permission-item">
-                <span className={`permission-badge ${selectedResult.rwStatus.readable ? 'readable' : 'not-readable'}`}>
-                  <i className={`fas ${selectedResult.rwStatus.readable ? 'fa-check' : 'fa-times'}`}></i> Read
-                </span>
-                <span className={`permission-badge ${selectedResult.rwStatus.writable ? 'writable' : 'not-writable'}`}>
-                  <i className={`fas ${selectedResult.rwStatus.writable ? 'fa-check' : 'fa-times'}`}></i> Write
-                </span>
-                <span className={`permission-badge ${selectedResult.rwStatus.modifyable ? 'modifyable' : 'not-modifyable'}`}>
-                  <i className={`fas ${selectedResult.rwStatus.modifyable ? 'fa-check' : 'fa-times'}`}></i> Modify
-                </span>
+                {selectedResult.rwStatus.readable && (
+                  <span className="permission-badge readable">
+                    <i className="fas fa-check"></i> Read
+                  </span>
+                )}
+                {selectedResult.rwStatus.writable && (
+                  <span className="permission-badge writable">
+                    <i className="fas fa-check"></i> Write
+                  </span>
+                )}
+                {selectedResult.rwStatus.modifyable && (
+                  <span className="permission-badge modifyable">
+                    <i className="fas fa-check"></i> Modify
+                  </span>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      <QuickActions fullPath={selectedResult.fullPath} />
 
       {selectedResult.riskScore && (
         <div className="collapsible-section">

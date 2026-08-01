@@ -9,9 +9,12 @@ import { ErrorDisplay } from './components/ErrorDisplay';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { parseSnafflerData, parseShareData } from './utils/parser';
 import { parseGPO } from './utils/GPOParser';
+import { detectBloodHoundFileType } from './utils/bloodhoundParser';
+import { BloodHoundModal } from './components/BloodHoundModal';
 import GPOResults from './components/GPOResults.tsx';
 import GPODetails from './components/GPODetails.tsx';
 import { FileResultsView } from './components/FileResultsView';
+import { Misconfigurations } from './components/Misconfigurations';
 import {
   exportFileResultsToCSV,
   exportFileResultsToXLSX,
@@ -23,8 +26,7 @@ import {
 import { calculateRiskScore } from './utils/riskScoring';
 import { usePanelLayout, Spinner, Toast, showToast } from './components/shared';
 import { useFileResultsState, useGPOState, useFiltering } from './hooks';
-
-type View = 'dashboard' | 'file-results' | 'share-results' | 'GPO-results' | 'GPO-details';
+import { View } from './utils/constants';
 
 function App() {
   // File Results state from custom hook
@@ -47,6 +49,7 @@ function App() {
   const gpoState = useGPOState();
   const {
     GPOReport, setGPOReport,
+    bloodHoundData, setBloodHoundData, isBloodHoundLoaded, bloodHoundFileCount,
     gpoList,
     setGpoSearch, setGpoLinkedFilter, setGpoSortField, setGpoSortDirection,
     setGpoCurrentPage, setGpoPageSize, setSelectedGPO, setSelectedGPOIndex,
@@ -66,8 +69,6 @@ function App() {
     setRatingFilter,
     setSearchFilter,
     setFileExtensionFilter,
-    setCredentialsFilter,
-    setScriptsConfigsFilter,
     setCustomFilters,
     setSortField,
     setSortDirection,
@@ -88,7 +89,7 @@ function App() {
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState({
     rating: true,
-    risk: true,
+    risk: false,
     fullPath: true,
     creationTime: true,
     lastModified: true,
@@ -107,6 +108,9 @@ function App() {
 
   // Loading state for file processing
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // BloodHound modal state
+  const [showBHModal, setShowBHModal] = useState(false);
 
   const handleFileUpload = (data: SnafflerJsonData | string | string[], fileType: 'json' | 'text' | 'log', fileName: string, fileSize?: string) => {
     // Helper: detect GPO in plaintext
@@ -161,7 +165,6 @@ function App() {
       setGPOReport(null);
       
       if (duplicateStats && duplicateStats.duplicatesRemoved > 0) {
-        console.log(`Duplicate detection: ${duplicateStats.duplicatesRemoved} duplicates removed (${duplicateStats.duplicatePercentage}% of total)`);
         setDuplicateStats(duplicateStats);
       } else {
         setDuplicateStats(null);
@@ -213,7 +216,7 @@ function App() {
     // Reset column visibility
     setVisibleColumns({
       rating: true,
-      risk: true,
+      risk: false,
       fullPath: true,
       creationTime: true,
       lastModified: true,
@@ -263,6 +266,11 @@ function App() {
         setErrorInfo(null);
         if (fileType === 'json') {
           const jsonData = JSON.parse(text);
+          // If GPO data is already loaded, check if this is a BloodHound file
+          if (GPOReport && detectBloodHoundFileType(jsonData)) {
+            setShowBHModal(true);
+            return;
+          }
           handleFileUpload(jsonData, 'json', file.name, fileSize);
         } else {
           handleFileUpload([text], fileType, file.name, fileSize);
@@ -544,7 +552,11 @@ function App() {
         return (
           <div className="dashboard-container">
             {GPOReport ? (
-              <GPODashboard report={GPOReport} />
+              <GPODashboard
+                report={GPOReport}
+                bloodHoundData={bloodHoundData}
+                onLoadBloodHound={() => setShowBHModal(true)}
+              />
             ) : (
               <Dashboard
                 stats={stats}
@@ -577,8 +589,6 @@ function App() {
             setRatingFilter={setRatingFilter}
             setSearchFilter={setSearchFilter}
             setFileExtensionFilter={setFileExtensionFilter}
-            setCredentialsFilter={setCredentialsFilter}
-            setScriptsConfigsFilter={setScriptsConfigsFilter}
             setCustomFilters={setCustomFilters}
             setSortField={setSortField}
             setSortDirection={setSortDirection}
@@ -639,6 +649,7 @@ function App() {
             {GPOReport && (
               <GPODetails
                 report={GPOReport}
+                bloodHoundData={bloodHoundData}
                 search={gpoList.search}
                 setSearch={setGpoSearch}
                 linkedFilter={gpoList.linkedFilter}
@@ -661,52 +672,98 @@ function App() {
             )}
           </>
         );
-      
+
+      case 'misconfigurations':
+        return (
+          <>
+            {GPOReport && (
+              <Misconfigurations report={GPOReport} bloodHoundData={bloodHoundData} />
+            )}
+          </>
+        );
+
       default:
         return null;
     }
   };
 
+  const hasLoadedData = allResults.length > 0 || !!GPOReport;
+
   return (
     <div className="App">
-      {(allResults.length > 0 || GPOReport) && (
-        <header className="header">
-          <div className="header-content">
-            <div className="header-left">
-              <h1>Chimas</h1>
+      {hasLoadedData && (
+        <>
+          <nav className="nav header">
+            <div className="brand nav-brand">
+              <div className="brand-mark">cm</div>
+              <div className="brand-name">chi<span>mas</span></div>
             </div>
-            
-            <div className="header-right">
-              <div className="header-file-info">
-                <div className="file-details">
-                  <div className="file-name">
-                    <i className="fas fa-file-alt file-icon"></i>
-                    {loadedFileName}
-                  </div>
-                  <span className="file-separator">•</span>
-                  <span className="file-size">{loadedFileSize}</span>
-                  <span className="file-separator">•</span>
-                  <span className="file-stats">
+
+            <div className="nav-right">
+              <div className="nav-meta">
+                <div
+                  className="nav-file-status"
+                  title={loadedFileName ? `${loadedFileName}${loadedFileSize ? ` (${loadedFileSize})` : ''}` : undefined}
+                >
+                  <i className="fas fa-file-alt" aria-hidden="true"></i>
+                  <span className="nav-file-name">{loadedFileName || (GPOReport ? 'Group3r' : 'Snaffler')}</span>
+                  <span className="nav-file-sep">·</span>
+                  <span className="nav-file-count">
                     {GPOReport ? `${stats.total} settings` : `${stats.total} files`}
                   </span>
                 </div>
-                <div className="file-actions">
-                  <button className="action-button clear-button" onClick={handleReset}>
-                    <i className="fas fa-times button-icon"></i>
-                    Clear
+                {GPOReport && (
+                  <button
+                    className={`nav-bh-link ${isBloodHoundLoaded ? 'loaded' : ''}`}
+                    onClick={() => setShowBHModal(true)}
+                    title={
+                      isBloodHoundLoaded
+                        ? `BloodHound: ${bloodHoundFileCount}/7 types loaded`
+                        : 'Load BloodHound data'
+                    }
+                    type="button"
+                  >
+                    <i className="fas fa-database"></i>
+                    <span>BloodHound</span>
+                    {isBloodHoundLoaded && (
+                      <span className="nav-file-count">{bloodHoundFileCount}/7</span>
+                    )}
+                    {!isBloodHoundLoaded && <i className="fas fa-plus header-chip-add"></i>}
                   </button>
-                </div>
-                <div className="vertical-separator"></div>
-                <div className="theme-toggle-switch" onClick={handleThemeToggle}>
-                  <i className="fas fa-moon sun-icon"></i>
-                  <i className="fas fa-sun moon-icon"></i>
-                </div>
+                )}
+              </div>
+
+              <div className="nav-actions">
+                <button
+                  className="action-button clear-button btn btn-sm"
+                  onClick={handleReset}
+                  title="Clear all loaded data"
+                  type="button"
+                >
+                  <i className="fas fa-times button-icon"></i>
+                  Clear
+                </button>
               </div>
             </div>
-          </div>
-        </header>
+          </nav>
+
+          <Navigation
+            currentView={currentView}
+            onViewChange={setCurrentView}
+            hasShareData={allResults.length > 0}
+            hasGPOData={!!GPOReport}
+            hasBloodHoundData={isBloodHoundLoaded}
+            counts={{
+              files: allResults.length,
+              filteredFiles: filteredResults.length,
+              shares: shareResults.length,
+              gpoSettings: GPOReport?.gpos.reduce((total, gpo) => total + gpo.settings.length, 0) || 0,
+              gpoCount: GPOReport?.gpos.length || 0
+            }}
+          />
+        </>
       )}
-      
+
       <input
         id="file-input"
         type="file"
@@ -719,9 +776,8 @@ function App() {
         }}
         style={{ display: 'none' }}
       />
-
       {errorInfo ? (
-        <ErrorDisplay 
+        <ErrorDisplay
           errorMessage={errorInfo.message}
           fileSnippet={errorInfo.snippet}
           errorPosition={errorInfo.errorPosition}
@@ -731,36 +787,17 @@ function App() {
           snippetStartLine={errorInfo.snippetStartLine}
           onClearError={handleClearError}
         />
-      ) : (allResults.length === 0 && !GPOReport) ? (
+      ) : !hasLoadedData ? (
         <div className="landing-page">
           <div className="landing-content">
-            <FileUpload 
-              onFileUpload={handleFileUpload} 
-              onReset={handleReset}
-              loadedFileName={loadedFileName}
+            <FileUpload
               onThemeToggle={handleThemeToggle}
-              isDarkTheme={isDarkTheme}
               onProcessFile={processFile}
             />
           </div>
         </div>
       ) : (
-        <>
-          <Navigation
-            currentView={currentView}
-            onViewChange={setCurrentView}
-            hasShareData={allResults.length > 0}
-            hasGPOData={!!GPOReport}
-            counts={{
-              files: allResults.length,
-              filteredFiles: filteredResults.length,
-              shares: shareResults.length,
-              gpoSettings: GPOReport?.gpos.reduce((total, gpo) => total + gpo.settings.length, 0) || 0,
-              gpoCount: GPOReport?.gpos.length || 0
-            }}
-          />
-          {renderCurrentView()}
-        </>
+        <>{renderCurrentView()}</>
       )}
 
       {/* Keyboard Shortcuts Modal */}
@@ -774,6 +811,15 @@ function App() {
         <div className="spinner-overlay">
           <Spinner size="large" label="Processing file..." />
         </div>
+      )}
+
+      {/* BloodHound Modal */}
+      {showBHModal && (
+        <BloodHoundModal
+          bloodHoundData={bloodHoundData}
+          onDataLoaded={(data) => setBloodHoundData(data)}
+          onClose={() => setShowBHModal(false)}
+        />
       )}
 
       {/* Toast Notifications */}

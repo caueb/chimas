@@ -43,7 +43,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
       <div className="modal-content keyboard-shortcuts-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Keyboard Shortcuts</h2>
-          <button className="modal-close-button" onClick={onClose}>
+          <button className="modal-close-button" onClick={onClose} aria-label="Close">
             <i className="fas fa-times"></i>
           </button>
         </div>

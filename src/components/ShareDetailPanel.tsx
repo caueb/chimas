@@ -68,9 +68,6 @@ export const ShareDetailPanel: React.FC<ShareDetailPanelProps> = ({ selectedShar
         <div className="detail-value-container">
           <div className="detail-value">
             <div className="share-properties">
-              {selectedShare.listable && (
-                <span className="property-badge listable">Listable</span>
-              )}
               {selectedShare.rootReadable && (
                 <span className="property-badge readable">Readable</span>
               )}

@@ -1,5 +1,4 @@
 import React from 'react';
-import { Button } from './shared';
 
 interface ShareFiltersProps {
   isMinimized: boolean;
@@ -25,31 +24,61 @@ export const ShareFilters: React.FC<ShareFiltersProps> = ({
     <div className="filters-container">
       <div className="filter-section">
         <label>Access Filters</label>
-        <div className="credentials-filter">
-          <Button
-            className={`credentials-filter-button ${showWritableOnly ? 'active' : ''}`}
-            active={showWritableOnly}
+        <div className="rating-filters access-filters">
+          <div
+            className={`rating-filter-item access-filter-item ${showWritableOnly ? 'selected' : ''}`}
             onClick={() => onShowWritableOnlyChange(!showWritableOnly)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onShowWritableOnlyChange(!showWritableOnly);
+              }
+            }}
+            title="Writable"
           >
-            <i className="fas fa-edit"></i>
-            {!isMinimized && <span>Writable Only</span>}
-          </Button>
-          <Button
-            className={`credentials-filter-button ${showReadableOnly ? 'active' : ''}`}
-            active={showReadableOnly}
+            <div className="rating-filter-count">
+              <i className="fas fa-edit" aria-hidden="true"></i>
+            </div>
+            {!isMinimized && <div className="rating-filter-label">Writable</div>}
+          </div>
+          <div
+            className={`rating-filter-item access-filter-item ${showReadableOnly ? 'selected' : ''}`}
             onClick={() => onShowReadableOnlyChange(!showReadableOnly)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onShowReadableOnlyChange(!showReadableOnly);
+              }
+            }}
+            title="Readable"
           >
-            <i className="fas fa-eye"></i>
-            {!isMinimized && <span>Readable Only</span>}
-          </Button>
-          <Button
-            className={`credentials-filter-button ${showModifiableOnly ? 'active' : ''}`}
-            active={showModifiableOnly}
+            <div className="rating-filter-count">
+              <i className="fas fa-eye" aria-hidden="true"></i>
+            </div>
+            {!isMinimized && <div className="rating-filter-label">Readable</div>}
+          </div>
+          <div
+            className={`rating-filter-item access-filter-item ${showModifiableOnly ? 'selected' : ''}`}
             onClick={() => onShowModifiableOnlyChange(!showModifiableOnly)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onShowModifiableOnlyChange(!showModifiableOnly);
+              }
+            }}
+            title="Modifiable"
           >
-            <i className="fas fa-pen"></i>
-            {!isMinimized && <span>Modifiable Only</span>}
-          </Button>
+            <div className="rating-filter-count">
+              <i className="fas fa-pen" aria-hidden="true"></i>
+            </div>
+            {!isMinimized && <div className="rating-filter-label">Modifiable</div>}
+          </div>
         </div>
       </div>
     </div>

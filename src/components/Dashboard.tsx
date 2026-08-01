@@ -2,7 +2,7 @@ import React from 'react';
 import { FileResult } from '../types';
 import { extractUserInfo, safeDateTimestamp } from '../utils/parser';
 import { formatFileSize } from '../utils/formatting';
-import { RiskDistributionChart, TimelineChart, FileTypeChart, RatingDistributionChart } from './charts';
+import { FileTypeChart, RatingDistributionChart } from './charts';
 
 interface DashboardProps {
   stats: {
@@ -122,9 +122,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareRe
   return (
     <div className="dashboard">
       <div className="dashboard-grid">
-        {/* Main Stats Cards */}
-        <div className="stats-section">
-          {userInfo.users.length > 0 && (
+        {userInfo.users.length > 0 && (
+          <div className="stats-section">
             <div className="scan-user-info">
               <span className="scan-user-label">Snaffler run by:</span>
               <span className="scan-user-details">
@@ -136,14 +135,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareRe
                 ))}
               </span>
             </div>
-          )}
-          <RatingDistributionChart stats={stats} />
-        </div>
+          </div>
+        )}
 
-        {/* Charts Section */}
+        {/* Charts: rating pie (half) + file types (half) */}
         <div className="charts-section">
-          <RiskDistributionChart results={allResults} />
-          <TimelineChart results={allResults} />
+          <RatingDistributionChart stats={stats} />
           <FileTypeChart results={allResults} />
         </div>
 
