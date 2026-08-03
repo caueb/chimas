@@ -673,6 +673,7 @@ function App() {
           </>
         );
 
+      case 'security-baseline':
       case 'misconfigurations':
         return (
           <>
@@ -701,34 +702,36 @@ function App() {
 
             <div className="nav-right">
               <div className="nav-meta">
-                <div
-                  className="nav-file-status"
-                  title={loadedFileName ? `${loadedFileName}${loadedFileSize ? ` (${loadedFileSize})` : ''}` : undefined}
+                <span
+                  className="nav-data-chip loaded"
+                  title={
+                    loadedFileName
+                      ? `${loadedFileName}${loadedFileSize ? ` (${loadedFileSize})` : ''}`
+                      : GPOReport
+                        ? 'Group3r data loaded'
+                        : 'Snaffler data loaded'
+                  }
                 >
-                  <i className="fas fa-file-alt" aria-hidden="true"></i>
-                  <span className="nav-file-name">{loadedFileName || (GPOReport ? 'Group3r' : 'Snaffler')}</span>
-                  <span className="nav-file-sep">·</span>
-                  <span className="nav-file-count">
-                    {GPOReport ? `${stats.total} settings` : `${stats.total} files`}
-                  </span>
-                </div>
+                  <i
+                    className={`fas ${GPOReport ? 'fa-sitemap' : 'fa-folder-open'}`}
+                    aria-hidden="true"
+                  ></i>
+                  <span className="nav-data-type">{GPOReport ? 'Group3r' : 'Snaffler'}</span>
+                </span>
+
                 {GPOReport && (
                   <button
-                    className={`nav-bh-link ${isBloodHoundLoaded ? 'loaded' : ''}`}
+                    className={`nav-data-chip ${isBloodHoundLoaded ? 'loaded' : 'pending'}`}
                     onClick={() => setShowBHModal(true)}
                     title={
                       isBloodHoundLoaded
-                        ? `BloodHound: ${bloodHoundFileCount}/7 types loaded`
+                        ? `BloodHound loaded (${bloodHoundFileCount}/7 types) — click to manage`
                         : 'Load BloodHound data'
                     }
                     type="button"
                   >
-                    <i className="fas fa-database"></i>
-                    <span>BloodHound</span>
-                    {isBloodHoundLoaded && (
-                      <span className="nav-file-count">{bloodHoundFileCount}/7</span>
-                    )}
-                    {!isBloodHoundLoaded && <i className="fas fa-plus header-chip-add"></i>}
+                    <i className="fas fa-project-diagram" aria-hidden="true"></i>
+                    <span className="nav-data-type">BloodHound</span>
                   </button>
                 )}
               </div>

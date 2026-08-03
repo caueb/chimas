@@ -99,12 +99,12 @@ export const Navigation: React.FC<NavigationProps> = ({
               )}
             </button>
             <button
-              className={`nav-tab ${currentView === 'misconfigurations' ? 'active' : ''}`}
-              onClick={() => onViewChange('misconfigurations')}
+              className={`nav-tab ${currentView === 'security-baseline' || currentView === 'misconfigurations' ? 'active' : ''}`}
+              onClick={() => onViewChange('security-baseline')}
               type="button"
             >
-              <i className="fas fa-exclamation-triangle"></i>
-              <span>Misconfigurations</span>
+              <i className="fas fa-shield-alt"></i>
+              <span>Security Baseline</span>
             </button>
           </>
         )}

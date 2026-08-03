@@ -562,11 +562,37 @@
   border-color: rgba(95, 122, 146, 0.28);
 }
 
-/* Low severity uses blue accent (already covered by badge-low); ensure class */
 .severity-badge.severity-low {
-  color: var(--text-accent);
+  color: #9fd0ff;
   background: rgba(59, 138, 255, 0.16);
   border-color: rgba(59, 138, 255, 0.35);
+}
+
+[data-theme="light"] .severity-badge.severity-low,
+[data-theme="light"] .badge-low,
+[data-theme="light"] .badge-info,
+[data-theme="light"] .badge-accent {
+  color: #334155;
+  background: rgba(100, 116, 139, 0.12);
+  border-color: rgba(100, 116, 139, 0.32);
+}
+
+[data-theme="light"] .severity-badge.severity-critical {
+  color: var(--red, #dc2626);
+  background: rgba(255, 92, 106, 0.14);
+  border-color: rgba(255, 92, 106, 0.38);
+}
+
+[data-theme="light"] .severity-badge.severity-high {
+  color: var(--orange, #c2410c);
+  background: rgba(240, 160, 96, 0.14);
+  border-color: rgba(240, 160, 96, 0.38);
+}
+
+[data-theme="light"] .severity-badge.severity-info {
+  color: var(--ok, #15803d);
+  background: rgba(95, 211, 138, 0.14);
+  border-color: rgba(22, 163, 74, 0.35);
 }
 
 /* Default badge when no variant */

@@ -1318,12 +1318,15 @@ td.risk-cell {
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
+  background: var(--bg-header, #0c1622);
+  color: #eaf4ff;
 }
 
-.modal-header h2 {
+.modal-header h2,
+.modal-header h3 {
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--text-strong);
+  color: #f8fafc;
   margin: 0;
 }
 
@@ -1331,15 +1334,15 @@ td.risk-cell {
   padding: 8px;
   background: none;
   border: none;
-  color: var(--text-muted);
+  color: rgba(234, 244, 255, 0.7);
   cursor: pointer;
   border-radius: var(--border-radius);
   transition: var(--transition-bg);
 }
 
 .modal-close-button:hover {
-  background-color: var(--bg-overlay);
-  color: var(--text);
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
 }
 
 .modal-body {
@@ -2720,6 +2723,27 @@ td.risk-cell {
 .bh-type-tag.optional {
   color: var(--text-muted);
   opacity: 0.6;
+}
+
+.bh-info-list {
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.bh-info-item {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  line-height: 1.35;
+}
+
+.bh-info-item i {
+  color: var(--accent, #5b8cff);
+  margin-top: 0.15rem;
 }
 
 .bh-errors {

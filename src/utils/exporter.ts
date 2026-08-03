@@ -536,8 +536,6 @@ export async function exportGPOToXLSX(report: GPOReport) {
   document.body.removeChild(link);
 }
 
-// -------- Misconfiguration Report Export --------
-
 export interface MisconfigExportData {
   misconfig: Misconfiguration;
   secureComputers: number;
@@ -553,31 +551,49 @@ export interface MisconfigExportData {
   gpoDetails: string;
 }
 
+function csvEscape(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 export function exportMisconfigurationsToCSV(items: MisconfigExportData[]) {
   const headers = [
-    'Severity', 'Misconfiguration', 'Description', 'Registry Path', 'Recommended Value',
-    'GPO Count', 'GPOs', 'Secure Computers', 'Insecure Computers', 'Unprotected Computers',
-    'Unprotected Computer Names', 'Total Computers', 'Secure Users', 'Insecure Users',
-    'Unprotected Users', 'Total Users'
+    'Severity',
+    'Check',
+    'Status',
+    'Category',
+    'Verdict',
+    'Description',
+    'Abuse Summary',
+    'Registry Path',
+    'Recommended Value',
+    'Windows Default',
+    'GPO Count',
+    'GPOs',
+    'Hardening GPO Hosts',
+    'Insecure GPO Hosts',
+    'No Hardening GPO Hosts',
+    'No Hardening GPO Host Names',
+    'Total Scoped Hosts',
   ];
 
   const rows = items.map(item => [
     item.misconfig.severity.toUpperCase(),
-    `"${item.misconfig.name.replace(/"/g, '""')}"`,
-    `"${item.misconfig.description.replace(/"/g, '""')}"`,
-    `"${item.misconfig.registryPath.replace(/"/g, '""')}"`,
-    `"${item.misconfig.recommendedValue.replace(/"/g, '""')}"`,
+    csvEscape(item.misconfig.name),
+    csvEscape(item.misconfig.status),
+    csvEscape(item.misconfig.category),
+    csvEscape(item.misconfig.verdict || ''),
+    csvEscape(item.misconfig.description),
+    csvEscape(item.misconfig.abuseSummary || ''),
+    csvEscape(item.misconfig.registryPath),
+    csvEscape(item.misconfig.recommendedValue),
+    csvEscape(item.misconfig.windowsDefault?.valueLabel || ''),
     item.misconfig.gpoCount,
-    `"${item.gpoDetails.replace(/"/g, '""')}"`,
+    csvEscape(item.gpoDetails),
     item.secureComputers,
     item.insecureComputers,
     item.unprotectedComputers,
-    `"${item.unprotectedComputerNames.join(', ')}"`,
+    csvEscape(item.unprotectedComputerNames.join(', ')),
     item.totalComputers,
-    item.secureUsers,
-    item.insecureUsers,
-    item.unprotectedUsers,
-    item.totalUsers,
   ]);
 
   const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -585,7 +601,7 @@ export function exportMisconfigurationsToCSV(items: MisconfigExportData[]) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `misconfigurations-report-${new Date().toISOString().split('T')[0]}.csv`);
+  link.setAttribute('download', `security-baseline-report-${new Date().toISOString().split('T')[0]}.csv`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
@@ -598,41 +614,43 @@ export async function exportMisconfigurationsToXLSX(items: MisconfigExportData[]
   // ---- Sheet 1: Summary ----
   const summarySheet = workbook.addWorksheet('Summary');
   summarySheet.columns = [
-    { header: 'Misconfigurations Report', key: 'property', width: 30 },
+    { header: 'Security Baseline Report', key: 'property', width: 36 },
     { header: '', key: 'value', width: 40 },
   ];
   const summaryRows = [
     { property: 'Export Date', value: new Date().toLocaleString() },
-    { property: 'Total Misconfigurations', value: items.length },
+    { property: 'Total Checks Exported', value: items.length },
     { property: 'Critical', value: items.filter(i => i.misconfig.severity === 'critical').length },
     { property: 'High', value: items.filter(i => i.misconfig.severity === 'high').length },
     { property: 'Medium', value: items.filter(i => i.misconfig.severity === 'medium').length },
     { property: 'Low', value: items.filter(i => i.misconfig.severity === 'low').length },
-    { property: 'Info', value: items.filter(i => i.misconfig.severity === 'info').length },
-    { property: 'Total Computers', value: items[0]?.totalComputers ?? 0 },
-    { property: 'Total Users', value: items[0]?.totalUsers ?? 0 },
+    { property: 'Info / Hardened', value: items.filter(i => i.misconfig.severity === 'info').length },
+    { property: 'Not in GPO', value: items.filter(i => i.misconfig.status === 'not_in_gpo').length },
+    { property: 'Insecure GPO', value: items.filter(i => i.misconfig.status === 'insecure').length },
+    { property: 'Note', value: 'No Hardening GPO hosts are unverified via GPO — not confirmed vulnerable' },
   ];
   for (const row of summaryRows) summarySheet.addRow(row);
   summarySheet.getRow(1).font = { bold: true };
 
-  // ---- Sheet 2: Misconfigurations ----
-  const miscSheet = workbook.addWorksheet('Misconfigurations');
+  // ---- Sheet 2: Baseline Checks ----
+  const miscSheet = workbook.addWorksheet('Security Baseline');
   miscSheet.columns = [
     { header: 'Severity', key: 'severity', width: 12 },
-    { header: 'Misconfiguration', key: 'name', width: 35 },
-    { header: 'Description', key: 'description', width: 50 },
+    { header: 'Check', key: 'name', width: 32 },
+    { header: 'Status', key: 'status', width: 16 },
+    { header: 'Category', key: 'category', width: 16 },
+    { header: 'Verdict', key: 'verdict', width: 48 },
+    { header: 'Description', key: 'description', width: 40 },
+    { header: 'Abuse Summary', key: 'abuse', width: 40 },
     { header: 'Registry Path', key: 'registryPath', width: 50 },
-    { header: 'Recommended', key: 'recommended', width: 20 },
+    { header: 'Recommended', key: 'recommended', width: 24 },
+    { header: 'Windows Default', key: 'winDefault', width: 28 },
     { header: 'GPOs', key: 'gpoCount', width: 8 },
     { header: 'GPO Details', key: 'gpoDetails', width: 40 },
-    { header: 'Secure Comp', key: 'secureComp', width: 14 },
-    { header: 'Insecure Comp', key: 'insecureComp', width: 14 },
-    { header: 'Unprotected Comp', key: 'unprotectedComp', width: 16 },
-    { header: 'Total Comp', key: 'totalComp', width: 12 },
-    { header: 'Secure Users', key: 'secureUsers', width: 14 },
-    { header: 'Insecure Users', key: 'insecureUsers', width: 14 },
-    { header: 'Unprotected Users', key: 'unprotectedUsers', width: 16 },
-    { header: 'Total Users', key: 'totalUsers', width: 12 },
+    { header: 'Hardening GPO Hosts', key: 'secureComp', width: 18 },
+    { header: 'Insecure GPO Hosts', key: 'insecureComp', width: 18 },
+    { header: 'No Hardening GPO Hosts', key: 'unprotectedComp', width: 20 },
+    { header: 'Total Scoped Hosts', key: 'totalComp', width: 16 },
   ];
 
   const sevColors: Record<string, string> = {
@@ -643,19 +661,20 @@ export async function exportMisconfigurationsToXLSX(items: MisconfigExportData[]
     const row = miscSheet.addRow({
       severity: item.misconfig.severity.toUpperCase(),
       name: item.misconfig.name,
+      status: item.misconfig.status,
+      category: item.misconfig.category,
+      verdict: item.misconfig.verdict || '',
       description: item.misconfig.description,
+      abuse: item.misconfig.abuseSummary || '',
       registryPath: item.misconfig.registryPath,
       recommended: item.misconfig.recommendedValue,
+      winDefault: item.misconfig.windowsDefault?.valueLabel || '',
       gpoCount: item.misconfig.gpoCount,
       gpoDetails: item.gpoDetails,
       secureComp: item.secureComputers,
       insecureComp: item.insecureComputers,
       unprotectedComp: item.unprotectedComputers,
       totalComp: item.totalComputers,
-      secureUsers: item.secureUsers,
-      insecureUsers: item.insecureUsers,
-      unprotectedUsers: item.unprotectedUsers,
-      totalUsers: item.totalUsers,
     });
 
     const sevCell = row.getCell('severity');
@@ -663,11 +682,8 @@ export async function exportMisconfigurationsToXLSX(items: MisconfigExportData[]
     sevCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } } as ExcelJS.Fill;
     sevCell.font = { bold: true, color: { argb: item.misconfig.severity === 'medium' ? 'FF000000' : 'FFFFFFFF' } };
 
-    if (item.unprotectedComputers > 0) {
-      row.getCell('unprotectedComp').font = { bold: true, color: { argb: 'FFFF0000' } };
-    }
-    if (item.unprotectedUsers > 0) {
-      row.getCell('unprotectedUsers').font = { bold: true, color: { argb: 'FFFF0000' } };
+    if (item.insecureComputers > 0) {
+      row.getCell('insecureComp').font = { bold: true, color: { argb: 'FFFF0000' } };
     }
   }
 
@@ -678,12 +694,14 @@ export async function exportMisconfigurationsToXLSX(items: MisconfigExportData[]
   miscSheet.autoFilter = { from: 'A1', to: { row: 1, column: miscSheet.columns.length } };
   miscSheet.views = [{ state: 'frozen', ySplit: 1 }];
 
-  // ---- Sheet 3: Unprotected Assets ----
-  const unprotectedSheet = workbook.addWorksheet('Unprotected Assets');
+  // ---- Sheet 3: No Hardening GPO Hosts ----
+  const unprotectedSheet = workbook.addWorksheet('No Hardening GPO Hosts');
   unprotectedSheet.columns = [
-    { header: 'Misconfiguration', key: 'misconfig', width: 35 },
+    { header: 'Check', key: 'misconfig', width: 35 },
     { header: 'Severity', key: 'severity', width: 12 },
-    { header: 'Unprotected Computer', key: 'computer', width: 40 },
+    { header: 'Status', key: 'status', width: 16 },
+    { header: 'Host (no hardening GPO)', key: 'computer', width: 40 },
+    { header: 'Note', key: 'note', width: 50 },
   ];
 
   for (const item of items) {
@@ -692,7 +710,9 @@ export async function exportMisconfigurationsToXLSX(items: MisconfigExportData[]
       const row = unprotectedSheet.addRow({
         misconfig: item.misconfig.name,
         severity: item.misconfig.severity.toUpperCase(),
+        status: item.misconfig.status,
         computer: name,
+        note: 'Unverified via GPO — may be enforced by Intune/SCCM/local policy/image',
       });
       const sevCell = row.getCell('severity');
       const color = sevColors[item.misconfig.severity] || 'FFE0E0E0';
@@ -705,7 +725,7 @@ export async function exportMisconfigurationsToXLSX(items: MisconfigExportData[]
   unprotectedSheet.getRow(1).eachCell(cell => {
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } } as ExcelJS.Fill;
   });
-  unprotectedSheet.autoFilter = { from: 'A1', to: { row: 1, column: 3 } };
+  unprotectedSheet.autoFilter = { from: 'A1', to: { row: 1, column: 5 } };
   unprotectedSheet.views = [{ state: 'frozen', ySplit: 1 }];
 
   const buffer = await workbook.xlsx.writeBuffer();
@@ -713,7 +733,7 @@ export async function exportMisconfigurationsToXLSX(items: MisconfigExportData[]
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `misconfigurations-report-${new Date().toISOString().split('T')[0]}.xlsx`);
+  link.setAttribute('download', `security-baseline-report-${new Date().toISOString().split('T')[0]}.xlsx`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();

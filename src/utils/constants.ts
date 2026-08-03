@@ -93,10 +93,11 @@ export type View =
   | 'share-results'
   | 'GPO-results'
   | 'GPO-details'
+  | 'security-baseline'
   | 'misconfigurations';
 
 // Severity types for misconfiguration findings
-// 'info' = properly configured (for coverage verification via BloodHound)
+// 'info' = properly configured / hardened
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
 /** @deprecated Prefer CSS classes `.severity-badge.severity-*` (unified soft badges). */

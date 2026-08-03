@@ -215,88 +215,57 @@ nav.nav {
   flex-shrink: 0;
 }
 
-/* Plain loaded-file status (no chip box) */
-.nav-file-status {
+.nav-data-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   font-size: 0.75rem;
-  font-weight: 500;
-  color: rgba(220, 234, 248, 0.7);
-  white-space: nowrap;
-  max-width: min(360px, 32vw);
-  min-width: 0;
-  background: none;
-  border: none;
-  padding: 0;
-  line-height: 1.2;
-}
-
-.nav-file-status i {
-  font-size: 0.7rem;
-  opacity: 0.55;
-  color: var(--text-accent);
-  flex-shrink: 0;
-}
-
-.nav-file-name {
-  color: rgba(234, 244, 255, 0.9);
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 220px;
-}
-
-.nav-file-sep {
-  opacity: 0.35;
-  font-weight: 400;
-}
-
-.nav-file-count {
-  color: rgba(220, 234, 248, 0.55);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* BloodHound as text action, not a chip box */
-.nav-bh-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: none;
-  border: none;
-  padding: 0;
-  color: rgba(220, 234, 248, 0.65);
-  font-size: 0.75rem;
   font-weight: 600;
   font-family: var(--font);
-  cursor: pointer;
+  line-height: 1.2;
   white-space: nowrap;
+  background: none;
+  border: none;
+  padding: 0.15rem 0;
+  color: rgba(220, 234, 248, 0.42);
   transition: color 0.15s ease;
-  box-shadow: none;
 }
 
-.nav-bh-link:hover {
-  color: #eaf4ff;
+.nav-data-chip i {
+  font-size: 0.72rem;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.nav-data-chip .nav-data-type {
+  letter-spacing: 0.01em;
+}
+
+.nav-data-chip.loaded {
+  color: var(--ok, #5fd38a);
+}
+
+.nav-data-chip.pending {
+  color: rgba(220, 234, 248, 0.42);
+  cursor: pointer;
+}
+
+button.nav-data-chip.pending:hover {
+  color: rgba(234, 244, 255, 0.78);
   background: none;
   transform: none;
   box-shadow: none;
 }
 
-.nav-bh-link.loaded {
-  color: var(--ok);
+button.nav-data-chip.loaded {
+  cursor: pointer;
 }
 
-.nav-bh-link i {
-  font-size: 0.7rem;
-  opacity: 0.8;
-}
-
-.header-chip-add {
-  font-size: 0.55rem;
-  opacity: 0.5;
+button.nav-data-chip.loaded:hover {
+  color: #7ee2a4;
+  background: none;
+  transform: none;
+  box-shadow: none;
 }
 
 .vertical-separator {
@@ -628,11 +597,6 @@ nav.nav {
 @media (max-width: 900px) {
 }
 
-@media (max-width: 900px) {
-  .nav-file-status .nav-file-count {
-    display: none;
-  }
-}
 
 @media (max-width: 640px) {
   .nav,
@@ -659,9 +623,6 @@ nav.nav {
     justify-content: flex-start;
   }
 
-  .nav-file-name {
-    max-width: 140px;
-  }
 
   .btn-row {
     flex-direction: column;
