@@ -69,8 +69,6 @@ function App() {
     setRatingFilter,
     setSearchFilter,
     setFileExtensionFilter,
-    setCredentialsFilter,
-    setScriptsConfigsFilter,
     setCustomFilters,
     setSortField,
     setSortDirection,
@@ -91,7 +89,7 @@ function App() {
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState({
     rating: true,
-    risk: true,
+    risk: false,
     fullPath: true,
     creationTime: true,
     lastModified: true,
@@ -167,7 +165,6 @@ function App() {
       setGPOReport(null);
       
       if (duplicateStats && duplicateStats.duplicatesRemoved > 0) {
-        console.log(`Duplicate detection: ${duplicateStats.duplicatesRemoved} duplicates removed (${duplicateStats.duplicatePercentage}% of total)`);
         setDuplicateStats(duplicateStats);
       } else {
         setDuplicateStats(null);
@@ -219,7 +216,7 @@ function App() {
     // Reset column visibility
     setVisibleColumns({
       rating: true,
-      risk: true,
+      risk: false,
       fullPath: true,
       creationTime: true,
       lastModified: true,
@@ -592,8 +589,6 @@ function App() {
             setRatingFilter={setRatingFilter}
             setSearchFilter={setSearchFilter}
             setFileExtensionFilter={setFileExtensionFilter}
-            setCredentialsFilter={setCredentialsFilter}
-            setScriptsConfigsFilter={setScriptsConfigsFilter}
             setCustomFilters={setCustomFilters}
             setSortField={setSortField}
             setSortDirection={setSortDirection}
@@ -678,6 +673,7 @@ function App() {
           </>
         );
 
+      case 'security-baseline':
       case 'misconfigurations':
         return (
           <>
@@ -692,88 +688,68 @@ function App() {
     }
   };
 
+  const hasLoadedData = allResults.length > 0 || !!GPOReport;
+
   return (
     <div className="App">
-      {(allResults.length > 0 || GPOReport) && (
-        <header className="header">
-          <div className="header-content">
-            <div className="header-left">
-              <h1>Chimas</h1>
-            </div>
-
-            <div className="header-center">
-              <div className="header-chip" title={`${loadedFileName} (${loadedFileSize})`}>
-                <i className="fas fa-file-alt"></i>
-                <span>{GPOReport ? 'Group3r' : 'Snaffler'}</span>
-                <span className="header-chip-detail">{GPOReport ? `${stats.total} settings` : `${stats.total} files`}</span>
-              </div>
-              {GPOReport && (
-                <button
-                  className={`header-chip header-chip-action ${isBloodHoundLoaded ? 'loaded' : ''}`}
-                  onClick={() => setShowBHModal(true)}
-                  title={isBloodHoundLoaded ? `BloodHound: ${bloodHoundFileCount}/7 types loaded` : 'Load BloodHound data'}
-                >
-                  <i className="fas fa-database"></i>
-                  <span>BloodHound</span>
-                  {isBloodHoundLoaded && <span className="header-chip-detail">{bloodHoundFileCount}/7</span>}
-                  {!isBloodHoundLoaded && <i className="fas fa-plus header-chip-add"></i>}
-                </button>
-              )}
-            </div>
-
-            <div className="header-right">
-              <button className="action-button clear-button" onClick={handleReset} title="Clear all loaded data">
-                <i className="fas fa-times button-icon"></i>
-                Clear
-              </button>
-              <div className="vertical-separator"></div>
-              <div className="theme-toggle-switch" onClick={handleThemeToggle}>
-                <i className="fas fa-moon sun-icon"></i>
-                <i className="fas fa-sun moon-icon"></i>
-              </div>
-            </div>
-          </div>
-        </header>
-      )}
-      
-      <input
-        id="file-input"
-        type="file"
-        accept=".json,.txt,.log"
-        onChange={(e) => {
-          const files = e.target.files;
-          if (files && files.length > 0) {
-            processFile(files[0]);
-          }
-        }}
-        style={{ display: 'none' }}
-      />
-      {errorInfo ? (
-        <ErrorDisplay 
-          errorMessage={errorInfo.message}
-          fileSnippet={errorInfo.snippet}
-          errorPosition={errorInfo.errorPosition}
-          fileName={errorInfo.fileName}
-          fileType={errorInfo.fileType}
-          actualLineNumber={errorInfo.actualLineNumber}
-          snippetStartLine={errorInfo.snippetStartLine}
-          onClearError={handleClearError}
-        />
-      ) : (allResults.length === 0 && !GPOReport) ? (
-        <div className="landing-page">
-          <div className="landing-content">
-            <FileUpload 
-              onFileUpload={handleFileUpload} 
-              onReset={handleReset}
-              loadedFileName={loadedFileName}
-              onThemeToggle={handleThemeToggle}
-              isDarkTheme={isDarkTheme}
-              onProcessFile={processFile}
-            />
-          </div>
-        </div>
-      ) : (
+      {hasLoadedData && (
         <>
+          <nav className="nav header">
+            <div className="brand nav-brand">
+              <div className="brand-mark">cm</div>
+              <div className="brand-name">chi<span>mas</span></div>
+            </div>
+
+            <div className="nav-right">
+              <div className="nav-meta">
+                <span
+                  className="nav-data-chip loaded"
+                  title={
+                    loadedFileName
+                      ? `${loadedFileName}${loadedFileSize ? ` (${loadedFileSize})` : ''}`
+                      : GPOReport
+                        ? 'Group3r data loaded'
+                        : 'Snaffler data loaded'
+                  }
+                >
+                  <i
+                    className={`fas ${GPOReport ? 'fa-sitemap' : 'fa-folder-open'}`}
+                    aria-hidden="true"
+                  ></i>
+                  <span className="nav-data-type">{GPOReport ? 'Group3r' : 'Snaffler'}</span>
+                </span>
+
+                {GPOReport && (
+                  <button
+                    className={`nav-data-chip ${isBloodHoundLoaded ? 'loaded' : 'pending'}`}
+                    onClick={() => setShowBHModal(true)}
+                    title={
+                      isBloodHoundLoaded
+                        ? `BloodHound loaded (${bloodHoundFileCount}/7 types) — click to manage`
+                        : 'Load BloodHound data'
+                    }
+                    type="button"
+                  >
+                    <i className="fas fa-project-diagram" aria-hidden="true"></i>
+                    <span className="nav-data-type">BloodHound</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="nav-actions">
+                <button
+                  className="action-button clear-button btn btn-sm"
+                  onClick={handleReset}
+                  title="Clear all loaded data"
+                  type="button"
+                >
+                  <i className="fas fa-times button-icon"></i>
+                  Clear
+                </button>
+              </div>
+            </div>
+          </nav>
+
           <Navigation
             currentView={currentView}
             onViewChange={setCurrentView}
@@ -788,8 +764,43 @@ function App() {
               gpoCount: GPOReport?.gpos.length || 0
             }}
           />
-          {renderCurrentView()}
         </>
+      )}
+
+      <input
+        id="file-input"
+        type="file"
+        accept=".json,.txt,.log"
+        onChange={(e) => {
+          const files = e.target.files;
+          if (files && files.length > 0) {
+            processFile(files[0]);
+          }
+        }}
+        style={{ display: 'none' }}
+      />
+      {errorInfo ? (
+        <ErrorDisplay
+          errorMessage={errorInfo.message}
+          fileSnippet={errorInfo.snippet}
+          errorPosition={errorInfo.errorPosition}
+          fileName={errorInfo.fileName}
+          fileType={errorInfo.fileType}
+          actualLineNumber={errorInfo.actualLineNumber}
+          snippetStartLine={errorInfo.snippetStartLine}
+          onClearError={handleClearError}
+        />
+      ) : !hasLoadedData ? (
+        <div className="landing-page">
+          <div className="landing-content">
+            <FileUpload
+              onThemeToggle={handleThemeToggle}
+              onProcessFile={processFile}
+            />
+          </div>
+        </div>
+      ) : (
+        <>{renderCurrentView()}</>
       )}
 
       {/* Keyboard Shortcuts Modal */}

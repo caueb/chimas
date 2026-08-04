@@ -288,7 +288,7 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 					</Button>
 				</div>
 				<div className="panel-content">
-					<div className="filter-section">
+					<div className="filter-section filter-card">
 						<label>Scope</label>
 						<Dropdown
 							value={scopeFilter}
@@ -299,7 +299,7 @@ const GPOResults: React.FC<GPOResultsProps> = ({
 							]}
 						/>
 					</div>
-					<div className="filter-section">
+					<div className="filter-section filter-card">
 						<label>Category</label>
 						<Dropdown
 							value={categoryFilter}

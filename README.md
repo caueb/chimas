@@ -1,28 +1,32 @@
 # Chimas
 
-A web application for analysing [Snaffler](https://github.com/SnaffCon/Snaffler) and [Group3r](https://github.com/Group3r/Group3r) output with interactive filtering and BloodHound integration.
-
-Also check out [group3r-python](https://github.com/caueb/group3r-python) — a Python port of Group3r for cross-platform use.
+A web application for analysing [Snaffler](https://github.com/SnaffCon/Snaffler) and [Group3r](https://github.com/Group3r/Group3r) output with interactive filtering and BloodHound integration.  
+Also check out [group3r-python](https://github.com/caueb/group3r-python) - a Python port of Group3r for cross-platform use.
 
 ## Snaffler Analysis
+### Dashboard
+- Dashboard with file rating distribution and top findings
+![Dashboard](./imgs/SnafflerDashboard.png)
 
-- Dashboard with file rating distribution, risk scoring, and top findings
+### Results
 - Filterable results table with severity, file type, and keyword search
 - Detail panel with match context highlighting and file metadata
 - False positive marking (excluded from exports)
 - Export to CSV / XLSX
-![Dashboard](./imgs/SnafflerFileResults.png)
-
+![FileResults](./imgs/SnafflerFileResults.png)
 
 ## Group3r Analysis
-
+### Dashboard
 - GPO inventory with settings, link status, and findings
+![Group3rDashboard](./imgs/Group3rDashboard.png)
+
+### Settings
 - Security misconfiguration detection (SMB signing, LLMNR, IPv6, LDAP, cached credentials, etc.)
 - BloodHound data integration to map GPOs to affected computers and users
 - GPO precedence resolution for conflicting settings
 - Unprotected asset identification per misconfiguration
 - Export misconfigurations report to CSV / XLSX with affected asset lists
-![Group3rDashboard](./imgs/Group3rDashboard.png)
+![Group3rDashboard](./imgs/Group3rSettings.png)
 
 ## Installation
 
@@ -64,8 +68,8 @@ This enables:
 This project was primarily generated with the assistance of AI tools and may contain code that has not been thoroughly reviewed or tested. Use at your own risk.
 
 ## Credits
-- Thanks to [perrc](https://github.com/perrc) for Group3r parsing support.
-- [Snaffler](https://github.com/SnaffCon/Snaffler) — SMB share enumeration and file triage
-- [Group3r](https://github.com/Group3r/Group3r) — Active Directory GPO auditing
-- [BloodHound](https://github.com/BloodHoundAD/BloodHound) — AD relationship mapping
+- [perrc](https://github.com/perrc) for Group3r parsing PR and inspiration.
+- [Snaffler](https://github.com/SnaffCon/Snaffler) - SMB share enumeration and file triage.
+- [Group3r](https://github.com/Group3r/Group3r) - AD GPO auditing.
+- [BloodHound](https://github.com/BloodHoundAD/BloodHound) - AD relationship mapping.
 

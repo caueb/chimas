@@ -1,7 +1,14 @@
 import { useState, useCallback, useEffect } from 'react';
-import { MisconfigurationState } from '../types/Misconfiguration';
+import {
+  MisconfigurationState,
+  CheckStatus,
+  SecurityCategory,
+  MisconfigScope,
+} from '../types/Misconfiguration';
+import { Severity } from '../utils/constants';
 
-const STORAGE_KEY = 'misconfig-state';
+const STORAGE_KEY = 'security-baseline-state';
+const LEGACY_STORAGE_KEY = 'misconfig-state';
 
 const initialState: MisconfigurationState = {
   selectedIndex: null,
@@ -9,22 +16,51 @@ const initialState: MisconfigurationState = {
   sortDirection: 'asc',
   currentPage: 1,
   pageSize: 20,
+  issuesOnly: true,
+  search: '',
+  statusFilter: [],
+  severityFilter: [],
+  categoryFilter: 'all',
+  scopeFilter: 'all',
 };
 
-export function useMisconfigurationState() {
-  const [state, setState] = useState<MisconfigurationState>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        return { ...initialState, ...JSON.parse(stored) };
-      } catch {
-        return initialState;
-      }
-    }
-    return initialState;
-  });
+const VALID_SORT_FIELDS: MisconfigurationState['sortField'][] = [
+  'name',
+  'severity',
+  'gpoCount',
+  'status',
+  'category',
+];
 
-  // Persist to localStorage
+function loadState(): MisconfigurationState {
+  const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      const sortField = VALID_SORT_FIELDS.includes(parsed.sortField)
+        ? parsed.sortField
+        : initialState.sortField;
+      return {
+        ...initialState,
+        ...parsed,
+        sortField,
+        issuesOnly: parsed.issuesOnly ?? true,
+        search: parsed.search ?? '',
+        statusFilter: Array.isArray(parsed.statusFilter) ? parsed.statusFilter : [],
+        severityFilter: Array.isArray(parsed.severityFilter) ? parsed.severityFilter : [],
+        categoryFilter: parsed.categoryFilter ?? 'all',
+        scopeFilter: parsed.scopeFilter ?? 'all',
+      };
+    } catch {
+      return initialState;
+    }
+  }
+  return initialState;
+}
+
+export function useMisconfigurationState() {
+  const [state, setState] = useState<MisconfigurationState>(loadState);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
@@ -49,6 +85,30 @@ export function useMisconfigurationState() {
     setState(prev => ({ ...prev, pageSize: size, currentPage: 1 }));
   }, []);
 
+  const setIssuesOnly = useCallback((issuesOnly: boolean) => {
+    setState(prev => ({ ...prev, issuesOnly, currentPage: 1, selectedIndex: null }));
+  }, []);
+
+  const setSearch = useCallback((search: string) => {
+    setState(prev => ({ ...prev, search, currentPage: 1 }));
+  }, []);
+
+  const setStatusFilter = useCallback((statusFilter: CheckStatus[]) => {
+    setState(prev => ({ ...prev, statusFilter, currentPage: 1 }));
+  }, []);
+
+  const setSeverityFilter = useCallback((severityFilter: Severity[]) => {
+    setState(prev => ({ ...prev, severityFilter, currentPage: 1 }));
+  }, []);
+
+  const setCategoryFilter = useCallback((categoryFilter: SecurityCategory | 'all') => {
+    setState(prev => ({ ...prev, categoryFilter, currentPage: 1 }));
+  }, []);
+
+  const setScopeFilter = useCallback((scopeFilter: MisconfigScope | 'all') => {
+    setState(prev => ({ ...prev, scopeFilter, currentPage: 1 }));
+  }, []);
+
   const resetState = useCallback(() => {
     setState(initialState);
   }, []);
@@ -60,6 +120,12 @@ export function useMisconfigurationState() {
     setSortDirection,
     setCurrentPage,
     setPageSize,
+    setIssuesOnly,
+    setSearch,
+    setStatusFilter,
+    setSeverityFilter,
+    setCategoryFilter,
+    setScopeFilter,
     resetState,
   };
 }

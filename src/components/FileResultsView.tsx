@@ -18,8 +18,6 @@ interface FilterState {
   ratingFilter: string[];
   searchFilter: string;
   fileExtensionFilter: string[];
-  credentialsFilter: boolean;
-  scriptsConfigsFilter: boolean;
   customFilters: CustomFilter[];
   sortField: SortField;
   sortDirection: SortDirection;
@@ -45,8 +43,6 @@ interface FileResultsViewProps {
   setRatingFilter: (ratings: string[]) => void;
   setSearchFilter: (search: string) => void;
   setFileExtensionFilter: (extensions: string[]) => void;
-  setCredentialsFilter: (enabled: boolean) => void;
-  setScriptsConfigsFilter: (enabled: boolean) => void;
   setCustomFilters: (filters: CustomFilter[] | ((prev: CustomFilter[]) => CustomFilter[])) => void;
   setSortField: (field: SortField) => void;
   setSortDirection: (direction: SortDirection) => void;
@@ -86,8 +82,6 @@ export const FileResultsView: React.FC<FileResultsViewProps> = ({
   setRatingFilter,
   setSearchFilter,
   setFileExtensionFilter,
-  setCredentialsFilter,
-  setScriptsConfigsFilter,
   setCustomFilters,
   setSortField,
   setSortDirection,
@@ -161,16 +155,12 @@ export const FileResultsView: React.FC<FileResultsViewProps> = ({
             sortField={filters.sortField}
             sortDirection={filters.sortDirection}
             customFilters={filters.customFilters}
-            credentialsFilter={filters.credentialsFilter}
-            scriptsConfigsFilter={filters.scriptsConfigsFilter}
             onRatingFilterChange={setRatingFilter}
             onSearchFilterChange={setSearchFilter}
             onFileExtensionFilterChange={setFileExtensionFilter}
             onSortFieldChange={setSortField}
             onSortDirectionChange={setSortDirection}
             onCustomFiltersChange={setCustomFilters}
-            onCredentialsFilterChange={setCredentialsFilter}
-            onScriptsConfigsFilterChange={setScriptsConfigsFilter}
             stats={stats}
             isMinimized={isLeftPanelMinimized}
           />

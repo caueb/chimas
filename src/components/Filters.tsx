@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SortField, SortDirection, CustomFilter } from '../types';
-import { Button, Input } from './shared';
+import { Button } from './shared';
 
 interface FiltersProps {
   ratingFilter: string[];
@@ -9,16 +9,12 @@ interface FiltersProps {
   sortField: SortField;
   sortDirection: SortDirection;
   customFilters: CustomFilter[];
-  credentialsFilter: boolean;
-  scriptsConfigsFilter: boolean;
   onRatingFilterChange: (value: string[]) => void;
   onSearchFilterChange: (value: string) => void;
   onFileExtensionFilterChange: (value: string[]) => void;
   onSortFieldChange: (field: SortField) => void;
   onSortDirectionChange: (direction: SortDirection) => void;
   onCustomFiltersChange: (filters: CustomFilter[]) => void;
-  onCredentialsFilterChange: (value: boolean) => void;
-  onScriptsConfigsFilterChange: (value: boolean) => void;
   stats: {
     total: number;
     red: number;
@@ -31,21 +27,11 @@ interface FiltersProps {
 
 export const Filters: React.FC<FiltersProps> = ({
   ratingFilter,
-  searchFilter,
   fileExtensionFilter,
-  sortField,
-  sortDirection,
   customFilters,
-  credentialsFilter,
-  scriptsConfigsFilter,
   onRatingFilterChange,
-  onSearchFilterChange,
   onFileExtensionFilterChange,
-  onSortFieldChange,
-  onSortDirectionChange,
   onCustomFiltersChange,
-  onCredentialsFilterChange,
-  onScriptsConfigsFilterChange,
   stats,
   isMinimized = false
 }) => {
@@ -56,12 +42,12 @@ export const Filters: React.FC<FiltersProps> = ({
     if (rating === 'all') {
       onRatingFilterChange(['all']);
     } else {
-      const newFilters = ratingFilter.includes('all') 
+      const newFilters = ratingFilter.includes('all')
         ? [rating]
         : ratingFilter.includes(rating)
           ? ratingFilter.filter(r => r !== rating)
           : [...ratingFilter, rating];
-      
+
       onRatingFilterChange(newFilters.length === 0 ? ['all'] : newFilters);
     }
   };
@@ -96,10 +82,10 @@ export const Filters: React.FC<FiltersProps> = ({
     const trimmedExtension = fileExtensionInput.trim();
     if (trimmedExtension) {
       // Remove leading dot if present
-      const cleanExtension = trimmedExtension.startsWith('.') 
-        ? trimmedExtension.slice(1) 
+      const cleanExtension = trimmedExtension.startsWith('.')
+        ? trimmedExtension.slice(1)
         : trimmedExtension;
-      
+
       if (!fileExtensionFilter.includes(cleanExtension.toLowerCase())) {
         onFileExtensionFilterChange([...fileExtensionFilter, cleanExtension.toLowerCase()]);
         setFileExtensionInput('');
@@ -122,35 +108,35 @@ export const Filters: React.FC<FiltersProps> = ({
       <div className="filter-section">
         <label>Quick Filters</label>
         <div className="rating-filters">
-          <div 
+          <div
             className={`rating-filter-item ${isSelected('all') ? 'selected' : ''}`}
             onClick={() => handleRatingClick('all')}
           >
             <div className="rating-filter-count">{isMinimized ? 'T' : stats.total}</div>
             <div className="rating-filter-label">Total Files</div>
           </div>
-          <div 
+          <div
             className={`rating-filter-item black ${isSelected('black') ? 'selected' : ''}`}
             onClick={() => handleRatingClick('black')}
           >
             <div className="rating-filter-count">{isMinimized ? 'B' : stats.black}</div>
             <div className="rating-filter-label">Black</div>
           </div>
-          <div 
+          <div
             className={`rating-filter-item red ${isSelected('red') ? 'selected' : ''}`}
             onClick={() => handleRatingClick('red')}
           >
             <div className="rating-filter-count">{isMinimized ? 'R' : stats.red}</div>
             <div className="rating-filter-label">Red</div>
           </div>
-          <div 
+          <div
             className={`rating-filter-item yellow ${isSelected('yellow') ? 'selected' : ''}`}
             onClick={() => handleRatingClick('yellow')}
           >
             <div className="rating-filter-count">{isMinimized ? 'Y' : stats.yellow}</div>
             <div className="rating-filter-label">Yellow</div>
           </div>
-          <div 
+          <div
             className={`rating-filter-item green ${isSelected('green') ? 'selected' : ''}`}
             onClick={() => handleRatingClick('green')}
           >
@@ -158,37 +144,9 @@ export const Filters: React.FC<FiltersProps> = ({
             <div className="rating-filter-label">Green</div>
           </div>
         </div>
-        <div className="credentials-filter">
-          <Button
-            className={`credentials-filter-button ${credentialsFilter ? 'active' : ''}`}
-            active={credentialsFilter}
-            onClick={() => onCredentialsFilterChange(!credentialsFilter)}
-          >
-            <i className="fas fa-key"></i>
-            {!isMinimized && <span>Potential Plaintext Credentials</span>}
-          </Button>
-          {credentialsFilter && !isMinimized && (
-            <div className="credentials-filter-info">
-              <small>Filtering for keywords like password, passwd, p@ss, key, and others in the match context.</small>
-            </div>
-          )}
-          <Button
-            className={`credentials-filter-button ${scriptsConfigsFilter ? 'active' : ''}`}
-            active={scriptsConfigsFilter}
-            onClick={() => onScriptsConfigsFilterChange(!scriptsConfigsFilter)}
-          >
-            <i className="fas fa-file-code"></i>
-            {!isMinimized && <span>Scripts & Configs</span>}
-          </Button>
-          {scriptsConfigsFilter && !isMinimized && (
-            <div className="credentials-filter-info">
-              <small>Filtering for .ps1, .bat, .cmd, .vbs, .js, .config, .xml, .ini, .conf, .yaml, .yml, .json</small>
-            </div>
-          )}
-        </div>
       </div>
 
-      <div className="filter-section">
+      <div className="filter-section filter-card">
         <label>File Extension Filter</label>
         <div className="file-extension-filter-input">
           <input
@@ -217,8 +175,8 @@ export const Filters: React.FC<FiltersProps> = ({
         )}
       </div>
 
-      <div className="filter-section">
-        <label>Text Exclude Filters</label>
+      <div className="filter-section filter-card">
+        <label>Filter out</label>
         <div className="custom-filter-input">
           <input
             type="text"
@@ -247,4 +205,4 @@ export const Filters: React.FC<FiltersProps> = ({
       </div>
     </div>
   );
-}; 
+};

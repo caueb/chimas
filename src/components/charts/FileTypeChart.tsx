@@ -9,25 +9,25 @@ interface FileTypeChartProps {
 
 interface FileTypeData {
   extension: string;
-  critical: number;
-  high: number;
-  medium: number;
-  low: number;
+  black: number;
+  red: number;
+  yellow: number;
+  green: number;
   total: number;
 }
 
-const RISK_COLORS = {
-  critical: 'var(--red)',
-  high: 'var(--orange, #e67e22)',
-  medium: 'var(--yellow)',
-  low: 'var(--green)'
+const RATING_COLORS = {
+  black: '#1a2433',
+  red: '#ff5c6a',
+  yellow: '#e5ff75',
+  green: '#5fd38a',
 };
 
-export const FileTypeChart: React.FC<FileTypeChartProps> = ({ results, onExtensionClick }) => {
+export const FileTypeChart: React.FC<FileTypeChartProps> = ({ results }) => {
   const getFileTypeDistribution = (): FileTypeData[] => {
     const extensionMap: Record<string, FileTypeData> = {};
 
-    results.forEach(result => {
+    results.forEach((result) => {
       const fileName = result.fileName;
       const lastDotIndex = fileName.lastIndexOf('.');
 
@@ -37,18 +37,19 @@ export const FileTypeChart: React.FC<FileTypeChartProps> = ({ results, onExtensi
         if (!extensionMap[ext]) {
           extensionMap[ext] = {
             extension: `.${ext}`,
-            critical: 0,
-            high: 0,
-            medium: 0,
-            low: 0,
-            total: 0
+            black: 0,
+            red: 0,
+            yellow: 0,
+            green: 0,
+            total: 0,
           };
         }
 
         extensionMap[ext].total++;
 
-        if (result.riskScore?.level) {
-          extensionMap[ext][result.riskScore.level]++;
+        const rating = (result.rating || '').toLowerCase();
+        if (rating === 'black' || rating === 'red' || rating === 'yellow' || rating === 'green') {
+          extensionMap[ext][rating]++;
         }
       }
     });
@@ -63,7 +64,7 @@ export const FileTypeChart: React.FC<FileTypeChartProps> = ({ results, onExtensi
   if (data.length === 0) {
     return (
       <div className="chart-container">
-        <h3 className="chart-title">File Types by Risk</h3>
+        <h3 className="chart-title">Top File Types by Rating</h3>
         <div className="chart-no-data">No file type data available</div>
       </div>
     );
@@ -71,8 +72,8 @@ export const FileTypeChart: React.FC<FileTypeChartProps> = ({ results, onExtensi
 
   return (
     <div className="chart-container">
-      <h3 className="chart-title">Top File Types by Risk</h3>
-      <div className="chart-subtitle">Which file types pose the highest risk?</div>
+      <h3 className="chart-title">Top File Types by Rating</h3>
+      <div className="chart-subtitle">File extensions stacked by Snaffler severity rating</div>
       <div className="chart-wrapper">
         <ResponsiveContainer width="100%" height={250}>
           <BarChart
@@ -86,14 +87,14 @@ export const FileTypeChart: React.FC<FileTypeChartProps> = ({ results, onExtensi
               contentStyle={{
                 backgroundColor: 'var(--bg-surface)',
                 border: '1px solid var(--border)',
-                borderRadius: '4px'
+                borderRadius: '4px',
               }}
             />
             <Legend wrapperStyle={{ fontSize: '11px' }} />
-            <Bar dataKey="critical" stackId="a" fill={RISK_COLORS.critical} name="Critical" />
-            <Bar dataKey="high" stackId="a" fill={RISK_COLORS.high} name="High" />
-            <Bar dataKey="medium" stackId="a" fill={RISK_COLORS.medium} name="Medium" />
-            <Bar dataKey="low" stackId="a" fill={RISK_COLORS.low} name="Low" />
+            <Bar dataKey="black" stackId="a" fill={RATING_COLORS.black} name="Black" />
+            <Bar dataKey="red" stackId="a" fill={RATING_COLORS.red} name="Red" />
+            <Bar dataKey="yellow" stackId="a" fill={RATING_COLORS.yellow} name="Yellow" />
+            <Bar dataKey="green" stackId="a" fill={RATING_COLORS.green} name="Green" />
           </BarChart>
         </ResponsiveContainer>
       </div>

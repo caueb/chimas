@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { FileResult, SortField, SortDirection, CustomFilter } from '../types';
-import { CREDENTIALS_KEYWORDS, RATING_ORDER } from '../utils/constants';
+import { RATING_ORDER } from '../utils/constants';
 import { safeDateTimestamp } from '../utils/parser';
 
 interface UseFilteringOptions {
@@ -11,8 +11,6 @@ interface FilterState {
   ratingFilter: string[];
   searchFilter: string;
   fileExtensionFilter: string[];
-  credentialsFilter: boolean;
-  scriptsConfigsFilter: boolean;
   customFilters: CustomFilter[];
   sortField: SortField;
   sortDirection: SortDirection;
@@ -24,8 +22,6 @@ interface UseFilteringResult {
   setRatingFilter: (ratings: string[]) => void;
   setSearchFilter: (search: string) => void;
   setFileExtensionFilter: (extensions: string[]) => void;
-  setCredentialsFilter: (enabled: boolean) => void;
-  setScriptsConfigsFilter: (enabled: boolean) => void;
   setCustomFilters: (
     filters: CustomFilter[] | ((prev: CustomFilter[]) => CustomFilter[])
   ) => void;
@@ -39,8 +35,6 @@ const initialFilterState: FilterState = {
   ratingFilter: ['all'],
   searchFilter: '',
   fileExtensionFilter: [],
-  credentialsFilter: false,
-  scriptsConfigsFilter: false,
   customFilters: [],
   sortField: 'rating',
   sortDirection: 'desc',
@@ -55,7 +49,6 @@ const initialFilterState: FilterState = {
  * - Rating filter (all, black, red, yellow, green)
  * - Full-text search across fileName, fullPath, matchContext, matchedStrings
  * - File extension filter
- * - Credentials detection filter with smart keyword matching
  * - Custom exclusion filters
  * - Multi-level stable sorting
  */
@@ -99,19 +92,6 @@ export function useFiltering({
       });
     }
 
-    // Apply credentials filter
-    if (filters.credentialsFilter) {
-      filtered = applyCredentialsFilter(filtered);
-    }
-
-    // Apply scripts & configs filter
-    if (filters.scriptsConfigsFilter) {
-      const scriptExtensions = ['ps1', 'bat', 'cmd', 'vbs', 'js', 'config', 'xml', 'ini', 'conf', 'yaml', 'yml', 'json'];
-      filtered = filtered.filter((result) => {
-        const ext = result.fileName.split('.').pop()?.toLowerCase() || '';
-        return scriptExtensions.includes(ext);
-      });
-    }
 
     // Apply custom filters (exclusions)
     if (filters.customFilters.length > 0) {
@@ -191,14 +171,6 @@ export function useFiltering({
     setFilters((prev) => ({ ...prev, fileExtensionFilter: extensions }));
   }, []);
 
-  const setCredentialsFilter = useCallback((enabled: boolean) => {
-    setFilters((prev) => ({ ...prev, credentialsFilter: enabled }));
-  }, []);
-
-  const setScriptsConfigsFilter = useCallback((enabled: boolean) => {
-    setFilters((prev) => ({ ...prev, scriptsConfigsFilter: enabled }));
-  }, []);
-
   const setCustomFilters = useCallback(
     (
       customFilters: CustomFilter[] | ((prev: CustomFilter[]) => CustomFilter[])
@@ -244,143 +216,10 @@ export function useFiltering({
     setRatingFilter,
     setSearchFilter,
     setFileExtensionFilter,
-    setCredentialsFilter,
-    setScriptsConfigsFilter,
     setCustomFilters,
     setSortField,
     setSortDirection,
     handleSort,
     resetFilters,
   };
-}
-
-// Helper functions for credentials filtering (extracted from App.tsx)
-
-/**
- * Check if matchContext looks like a rule name or configuration
- */
-function isRuleOrConfig(context: string): boolean {
-  const contextTrimmed = context.trim();
-  if (!contextTrimmed) return false;
-
-  // Check for comma-separated camelCase patterns (like "HasPassword,LookNearbyFor.txtFiles")
-  if (/^[A-Z][a-zA-Z]*(?:,[A-Z][a-zA-Z]*)+/.test(contextTrimmed)) {
-    return true;
-  }
-
-  // Check for camelCase patterns that look like rule names (multiple capital letters)
-  if (/^[A-Z][a-z]*[A-Z]/.test(contextTrimmed) && !/\s/.test(contextTrimmed)) {
-    if (contextTrimmed.length > 30) {
-      return true;
-    }
-  }
-
-  // Check for patterns that look like configuration strings
-  if (
-    /[A-Z][a-zA-Z]*[A-Z][a-zA-Z]*(?:[,;]|\s+)[A-Z][a-zA-Z]*/.test(
-      contextTrimmed
-    )
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Check if matchContext is just a filename or only extensions
- */
-function isJustFilename(context: string, fileName: string): boolean {
-  const contextLower = context.trim().toLowerCase();
-  const fileNameLower = fileName.toLowerCase();
-
-  if (
-    contextLower === fileNameLower ||
-    contextLower === fileNameLower.replace(/^.*[\\/]/, '')
-  ) {
-    return true;
-  }
-
-  // Check if matchContext is just a common file extension
-  const extensionPattern =
-    /^\.([a-z0-9]{1,6})(\.(bak|old|tmp|temp|swp|orig|backup|copy|~))?$/i;
-  if (extensionPattern.test(contextLower)) {
-    return true;
-  }
-
-  // Check if matchContext is very short and doesn't contain meaningful content
-  if (
-    contextLower.length < 20 &&
-    !/\s/.test(contextLower) &&
-    !/[a-z]{4,}/.test(contextLower)
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Apply credentials filter with smart detection
- */
-function applyCredentialsFilter(results: FileResult[]): FileResult[] {
-  return results.filter((result) => {
-    const fileNameLower = result.fileName.toLowerCase();
-
-    // Check if filename contains strong credential keywords (length >= 5)
-    const strongFileNameKeywords = CREDENTIALS_KEYWORDS.filter(
-      (k) => k.length >= 5
-    );
-    const fileNameHasKeyword = strongFileNameKeywords.some((keyword) =>
-      fileNameLower.includes(keyword.toLowerCase())
-    );
-    if (fileNameHasKeyword) return true;
-
-    // Get and validate matchContext
-    const matchContext = (result.matchContext || '').trim();
-    const hasValidMatchContext =
-      matchContext &&
-      !isJustFilename(matchContext, result.fileName) &&
-      !isRuleOrConfig(matchContext);
-
-    // Filter matchedStrings to exclude filenames, extensions, and rule/config patterns
-    const matchedStrings = (result.matchedStrings || [])
-      .map((s) => (s || '').trim())
-      .filter(
-        (s) =>
-          s.length > 0 &&
-          !isJustFilename(s, result.fileName) &&
-          !isRuleOrConfig(s)
-      );
-
-    // Drop double-extension backup files when there is no real content
-    const doubleExtensionPattern =
-      /\.[a-z0-9]{1,6}\.(bak|old|tmp|temp|swp|orig|backup|copy|pdf|docx|xlsx|pptx|zip|rar|tar|gz|bz2|7z|exe|dll|sys|bin|ini|cfg|conf|config|properties|yml|yaml|env|sh|bat|cmd|ps1|vbs|js|py|java|cpp|c|h|hpp|cs|php|rb|pl|sql|db|sqlite|mdb|accdb|ldf|mdf|dbf|dwg|dxf|psd|ai|eps|svg|png|jpg|jpeg|gif|bmp|tiff|ico|mp3|mp4|avi|mov|wmv|flv|mkv|iso|img|vmdk|vdi|vhd|ova|ovf|~)$/;
-    const isDoubleExtensionFile = doubleExtensionPattern.test(fileNameLower);
-    if (
-      isDoubleExtensionFile &&
-      !hasValidMatchContext &&
-      matchedStrings.length === 0
-    ) {
-      return false;
-    }
-
-    // Skip if no valid content to check
-    if (!hasValidMatchContext && matchedStrings.length === 0) {
-      return false;
-    }
-
-    // Build search text from valid content only
-    const searchText = [
-      ...(hasValidMatchContext ? [matchContext] : []),
-      ...matchedStrings,
-    ]
-      .join(' ')
-      .toLowerCase();
-
-    // Check if any keyword appears in the actual content
-    return CREDENTIALS_KEYWORDS.some((keyword) =>
-      searchText.includes(keyword.toLowerCase())
-    );
-  });
 }

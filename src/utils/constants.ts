@@ -93,18 +93,20 @@ export type View =
   | 'share-results'
   | 'GPO-results'
   | 'GPO-details'
+  | 'security-baseline'
   | 'misconfigurations';
 
 // Severity types for misconfiguration findings
-// 'info' = properly configured (for coverage verification via BloodHound)
+// 'info' = properly configured / hardened
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
+/** @deprecated Prefer CSS classes `.severity-badge.severity-*` (unified soft badges). */
 export const SEVERITY_COLORS: Record<Severity, { badge: string; text: string }> = {
-  critical: { badge: '#dc2626', text: '#ffffff' },
-  high: { badge: '#ea580c', text: '#ffffff' },
-  medium: { badge: '#ca8a04', text: '#000000' },
-  low: { badge: '#2563eb', text: '#ffffff' },
-  info: { badge: '#22c55e', text: '#ffffff' },  // Green for properly configured
+  critical: { badge: 'rgba(255, 92, 106, 0.14)', text: '#ff5c6a' },
+  high: { badge: 'rgba(240, 160, 96, 0.14)', text: '#f0a060' },
+  medium: { badge: 'rgba(229, 255, 117, 0.12)', text: '#e5ff75' },
+  low: { badge: 'rgba(59, 138, 255, 0.16)', text: '#9fd0ff' },
+  info: { badge: 'rgba(95, 211, 138, 0.14)', text: '#5fd38a' },
 };
 
 export const SEVERITY_ORDER: Record<Severity, number> = {

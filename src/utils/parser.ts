@@ -173,8 +173,6 @@ export function parseSnafflerJson(jsonData: SnafflerJsonData): { results: FileRe
 
 function parseJsonFileEntry(entry: SnafflerEntry): FileResult[] {
   const results: FileResult[] = [];
-  const debugMode = false; // Set to true for verbose logging
-
   try {
     // Extract data from eventProperties (cast to typed interface)
     const eventProps = entry.eventProperties as EventProperties;
@@ -214,57 +212,7 @@ function parseJsonFileEntry(entry: SnafflerEntry): FileResult[] {
                 modifyable: fileResult.RwStatus.CanModify || false
               } : undefined
             };
-            
-            // Debug logging for timestamps
-            if (debugMode) {
-              console.log(`Processing entry: ${result.fullPath} (${result.rating}) - Rule: ${result.ruleName}`);
-              console.log(`  Raw CreationTime: "${fileResult.FileInfo.CreationTime}"`);
-              console.log(`  Raw CreationTimeUtc: "${fileResult.FileInfo.CreationTimeUtc}"`);
-              console.log(`  Raw LastWriteTime: "${fileResult.FileInfo.LastWriteTime}"`);
-              console.log(`  Raw LastWriteTimeUtc: "${fileResult.FileInfo.LastWriteTimeUtc}"`);
-              console.log(`  Raw LastAccessTime: "${fileResult.FileInfo.LastAccessTime}"`);
-              console.log(`  Raw LastAccessTimeUtc: "${fileResult.FileInfo.LastAccessTimeUtc}"`);
-              console.log(`  Using CreationTime: "${result.creationTime}"`);
-              console.log(`  Using LastModified: "${result.lastModified}"`);
-              
-              // Validate timestamp logic
-              if (creationTime && lastModified) {
-                try {
-                  const creationDate = new Date(creationTime);
-                  const modifiedDate = new Date(lastModified);
-                  
-                  if (creationDate > modifiedDate) {
-                    console.warn(`⚠️  SUSPICIOUS TIMESTAMPS: Creation time (${creationTime}) is after last modified time (${lastModified}) for file: ${result.fullPath}`);
-                    console.warn(`   This could indicate file manipulation, data recovery, or file system inconsistencies.`);
-                    
-                    // Check if this might be a backup file or archive
-                    if (result.fileName.toLowerCase().includes('.bak') || 
-                        result.fileName.toLowerCase().includes('.backup') ||
-                        result.fileName.toLowerCase().includes('.archive')) {
-                      console.info(`   Note: This appears to be a backup file, which might explain the timestamp anomaly.`);
-                    }
-                    
-                    // Check if the file is in an archive directory
-                    if (result.fullPath.toLowerCase().includes('archive') ||
-                        result.fullPath.toLowerCase().includes('backup')) {
-                      console.info(`   Note: File is in an archive/backup directory, which might explain the timestamp anomaly.`);
-                    }
-                  }
-                  
-                  // Check for other suspicious patterns
-                  const timeDiff = Math.abs(creationDate.getTime() - modifiedDate.getTime());
-                  const timeDiffMinutes = timeDiff / (1000 * 60);
-                  
-                  if (timeDiffMinutes < 5) {
-                    console.info(`   Note: Creation and modification times are very close (${timeDiffMinutes.toFixed(1)} minutes apart).`);
-                  }
-                  
-                } catch (dateError) {
-                  console.error(`Error parsing dates for ${result.fullPath}:`, dateError);
-                }
-              }
-            }
-            
+
             results.push(result);
           }
         }
@@ -347,11 +295,28 @@ function parseTextFileLine(line: string): FileResult | null {
     let size = '';
     let matchContext = '';
     
+    // Permission flags from Snaffler text format:
+    // <RuleName|RWM|matchPattern|size|timestamp>
+    // Second pipe field is ACL flags when present (R=read, W=write, M=modify)
+    let rwStatus: FileResult['rwStatus'] = undefined;
+
     if (ruleDetailsMatch) {
       const ruleDetails = ruleDetailsMatch[1];
       const ruleParts = ruleDetails.split('|');
       if (ruleParts.length >= 1) {
         ruleName = ruleParts[0];
+      }
+
+      if (ruleParts.length >= 2) {
+        const permFlags = ruleParts[1].trim().toUpperCase();
+        // Only treat short R/W/M tokens as permissions (not regex/patterns)
+        if (/^[RWM]+$/.test(permFlags)) {
+          rwStatus = {
+            readable: permFlags.includes('R'),
+            writable: permFlags.includes('W'),
+            modifyable: permFlags.includes('M'),
+          };
+        }
       }
       
       // Try to extract size from the rule details
@@ -387,7 +352,8 @@ function parseTextFileLine(line: string): FileResult | null {
       ruleName,
       matchedStrings: [matchContext],
       triage: rating,
-      userContext
+      userContext,
+      rwStatus,
     };
   } catch (error) {
     console.error('Error parsing text file line:', error, 'Line:', line.substring(0, 100) + '...');
@@ -608,71 +574,7 @@ export function extractSystemIdentifier(identifier: string): {
   };
 }
 
-// Test function to verify system identifier extraction
-export function testSystemIdentifierExtraction() {
-  const testCases = [
-    '192.168.1.100',
-    'DESKTOP-ABC123',
-    'server.example.com',
-    'invalid-identifier',
-    '10.0.0.1',
-    'WORKSTATION-123',
-    'domain.local'
-  ];
 
-  testCases.forEach(testCase => {
-    const result = extractSystemIdentifier(testCase);
-    console.log(`${testCase} -> ${result.type}: ${result.value} (${result.displayName})`);
-  });
-}
-
-export function filterResults(
-  results: FileResult[],
-  ratingFilter: string[],
-  searchFilter: string,
-  customFilters: CustomFilter[]
-): FileResult[] {
-  let filtered = results;
-
-  // Filter by rating
-  if (!ratingFilter.includes('all')) {
-    filtered = filtered.filter(result => 
-      ratingFilter.includes(result.rating.toLowerCase())
-    );
-  }
-
-  // Filter by search term
-  if (searchFilter.trim()) {
-    const searchTerm = searchFilter.toLowerCase();
-    filtered = filtered.filter(result =>
-      result.fileName.toLowerCase().includes(searchTerm) ||
-      result.fullPath.toLowerCase().includes(searchTerm) ||
-      result.ruleName.toLowerCase().includes(searchTerm) ||
-      result.matchContext.toLowerCase().includes(searchTerm) ||
-      result.matchedStrings.some(str => str.toLowerCase().includes(searchTerm))
-    );
-  }
-
-  // Filter by custom exclude filters
-  if (customFilters.length > 0) {
-    filtered = filtered.filter(result => {
-      const resultText = [
-        result.fileName,
-        result.fullPath,
-        result.ruleName,
-        result.matchContext,
-        ...result.matchedStrings
-      ].join(' ').toLowerCase();
-      
-      // Exclude if any custom filter text is found in the result
-      return !customFilters.some(filter => 
-        resultText.includes(filter.text.toLowerCase())
-      );
-    });
-  }
-
-  return filtered;
-}
 
 export function sortResults(
   results: FileResult[],
@@ -802,8 +704,6 @@ export function parseSnafflerShares(jsonData: SnafflerJsonData): ShareResult[] {
  */
 function parseJsonShareEntry(entry: SnafflerEntry): ShareResult[] {
   const results: ShareResult[] = [];
-  const debugMode = false; // Set to true for verbose logging
-
   try {
     // Extract data from eventProperties (cast to typed interface)
     const eventProps = entry.eventProperties as EventProperties;
@@ -844,12 +744,7 @@ function parseJsonShareEntry(entry: SnafflerEntry): ShareResult[] {
             scanShare: shareResult.ScanShare || false,
             triage: shareResult.Triage || colorKey
           };
-          
-          // Log the entry being processed for debugging
-          if (debugMode) {
-            console.log(`Processing share entry: ${result.sharePath} (${result.rating}) - Comment: ${result.shareComment}`);
-          }
-          
+
           results.push(result);
         }
       }

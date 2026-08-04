@@ -328,7 +328,7 @@ const GPODetails: React.FC<GPODetailsProps> = ({
           </Button>
         </div>
         <div className="panel-content">
-          <div className="filter-section">
+          <div className="filter-section filter-card">
             <label>Linked</label>
             <Dropdown
               value={linkedFilter}

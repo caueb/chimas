@@ -16,8 +16,6 @@ interface NavigationProps {
   };
 }
 
-// hasBloodHoundData is accepted but not rendered in nav (indicator is in the header)
-
 const formatCount = (count: number): string => {
   if (count >= 1000000) {
     return `${(count / 1000000).toFixed(1)}M`;
@@ -28,13 +26,20 @@ const formatCount = (count: number): string => {
   return count.toString();
 };
 
-export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange, hasShareData, hasGPOData, hasBloodHoundData, counts }) => {
+export const Navigation: React.FC<NavigationProps> = ({
+  currentView,
+  onViewChange,
+  hasShareData,
+  hasGPOData,
+  counts,
+}) => {
   return (
-    <nav className="navigation">
+    <nav className="navigation" aria-label="Page navigation">
       <div className="nav-tabs">
         <button
           className={`nav-tab ${currentView === 'dashboard' ? 'active' : ''}`}
           onClick={() => onViewChange('dashboard')}
+          type="button"
         >
           <i className="fas fa-chart-bar"></i>
           <span>Dashboard</span>
@@ -44,6 +49,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChang
             <button
               className={`nav-tab ${currentView === 'file-results' ? 'active' : ''}`}
               onClick={() => onViewChange('file-results')}
+              type="button"
             >
               <i className="fas fa-file-alt"></i>
               <span>File Results</span>
@@ -51,14 +57,14 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChang
                 <span className="nav-badge">
                   {counts.filteredFiles !== undefined && counts.filteredFiles !== counts.files
                     ? `${formatCount(counts.filteredFiles)}/${formatCount(counts.files)}`
-                    : formatCount(counts.files)
-                  }
+                    : formatCount(counts.files)}
                 </span>
               )}
             </button>
             <button
               className={`nav-tab ${currentView === 'share-results' ? 'active' : ''}`}
               onClick={() => onViewChange('share-results')}
+              type="button"
             >
               <i className="fas fa-share-alt"></i>
               <span>Share Results</span>
@@ -73,6 +79,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChang
             <button
               className={`nav-tab ${currentView === 'GPO-details' ? 'active' : ''}`}
               onClick={() => onViewChange('GPO-details')}
+              type="button"
             >
               <i className="fas fa-list-alt"></i>
               <span>GPO List</span>
@@ -83,6 +90,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChang
             <button
               className={`nav-tab ${currentView === 'GPO-results' ? 'active' : ''}`}
               onClick={() => onViewChange('GPO-results')}
+              type="button"
             >
               <i className="fas fa-shield-alt"></i>
               <span>GPO Settings</span>
@@ -91,15 +99,16 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChang
               )}
             </button>
             <button
-              className={`nav-tab ${currentView === 'misconfigurations' ? 'active' : ''}`}
-              onClick={() => onViewChange('misconfigurations')}
+              className={`nav-tab ${currentView === 'security-baseline' || currentView === 'misconfigurations' ? 'active' : ''}`}
+              onClick={() => onViewChange('security-baseline')}
+              type="button"
             >
-              <i className="fas fa-exclamation-triangle"></i>
-              <span>Misconfigurations</span>
+              <i className="fas fa-shield-alt"></i>
+              <span>Security Baseline</span>
             </button>
           </>
         )}
       </div>
     </nav>
   );
-}; 
+};

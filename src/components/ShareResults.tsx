@@ -408,7 +408,6 @@ export const ShareResults: React.FC<ShareResultsProps> = ({ shareResults }) => {
                       {visibleColumns.properties && (
                         <td className="properties-cell">
                           <div className="share-properties">
-                            {share.listable && <span className="property-badge listable">Listable</span>}
                             {share.rootReadable && <span className="property-badge readable">Readable</span>}
                             {share.rootWritable && <span className="property-badge writable">Writable</span>}
                             {share.rootModifyable && <span className="property-badge modifiable">Modifiable</span>}
