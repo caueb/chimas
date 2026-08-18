@@ -224,11 +224,11 @@ Jan 15 10:31:00 [File] <Black>C:\\\\documents\\\\normal.pdf</Black>`;
           {renderExpectedFormat()}
           
           <div className="bash-command-section">
-            If your <b>snaffler.json</b> is missing commas between entries, try this jq command:
+            Chimas already accepts Snaffler NDJSON (one object per line) and large files. If the file is truncated mid-object and still fails, try:
             <div className="bash-command-box">
               <code>{`jq -s '{entries: .}' snaffler.json > snaffler-fixed.json`}</code>
             </div>
-            This wraps the objects into a valid JSON array and adds commas between entries. Then you can load <b>snafller-fixed.json</b> into Chimas.
+            This drops a broken last line and wraps the objects into a valid JSON array. Then you can load <b>snafller-fixed.json</b> into Chimas.
           </div>
         </div>
 

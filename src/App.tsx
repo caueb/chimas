@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FileResult, SortField, SortDirection, CustomFilter, SnafflerJsonData, ShareInfo } from './types';
+import { FileResult, SortField, SortDirection, CustomFilter, ShareInfo, GPOReport } from './types';
 import { FileUpload } from './components/FileUpload';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/Dashboard';
@@ -7,9 +7,7 @@ import { GPODashboard } from './components/GPODashboard';
 import { ShareResults } from './components/ShareResults';
 import { ErrorDisplay } from './components/ErrorDisplay';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
-import { parseSnafflerData, parseShareData } from './utils/parser';
-import { parseGPO } from './utils/GPOParser';
-import { detectBloodHoundFileType } from './utils/bloodhoundParser';
+import { processUploadedFile, applyInChunks, type UploadedFileType } from './utils/fileProcessor';
 import { BloodHoundModal } from './components/BloodHoundModal';
 import GPOResults from './components/GPOResults.tsx';
 import GPODetails from './components/GPODetails.tsx';
@@ -108,83 +106,27 @@ function App() {
 
   // Loading state for file processing
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('Processing file...');
 
   // BloodHound modal state
   const [showBHModal, setShowBHModal] = useState(false);
 
-  const handleFileUpload = (data: SnafflerJsonData | string | string[], fileType: 'json' | 'text' | 'log', fileName: string, fileSize?: string) => {
-    // Helper: detect GPO in plaintext
-    const looksLikeGPO = (text: string) => {
-      return /\[GPO\]/.test(text) && (/^\s*\|.*\|/m.test(text) || /\\___/.test(text));
-    };
-
-    try {
-      if (fileType !== 'json') {
-        const rawText = Array.isArray(data) ? String(data[0]) : String(data);
-        if (looksLikeGPO(rawText)) {
-          const report = parseGPO(rawText);
-          // Persist GPO state
-          setGPOReport(report);
-          setLoadedFileName(fileName);
-          setLoadedFileSize(fileSize || '');
-          // Clear Snaffler state when loading GPO-only file
-          setAllResults([]);
-          setShareResults([]);
-          
-          // Calculate total GPO settings count
-          const totalSettings = report.gpos.reduce((total, gpo) => total + gpo.settings.length, 0);
-          setStats({ 
-            total: totalSettings, 
-            red: 0, 
-            yellow: 0, 
-            green: 0, 
-            black: 0 
-          });
-          
-          setDuplicateStats(null);
-          setCurrentView('dashboard');
-          return;
-        }
-      }
-
-      // Default to Snaffler parsing
-      const parseResult = parseSnafflerData(data, fileType);
-      const results = parseResult.results;
-      const duplicateStats = parseResult.duplicateStats;
-
-      // Calculate risk scores for all results
-      const resultsWithRiskScores = results.map(result => ({
-        ...result,
-        riskScore: calculateRiskScore(result)
-      }));
-
-      setAllResults(resultsWithRiskScores);
-      setLoadedFileName(fileName);
-      setLoadedFileSize(fileSize || '');
-      setCurrentView('dashboard');
-      setGPOReport(null);
-      
-      if (duplicateStats && duplicateStats.duplicatesRemoved > 0) {
-        setDuplicateStats(duplicateStats);
-      } else {
-        setDuplicateStats(null);
-      }
-      
-      const newStats = {
-        total: resultsWithRiskScores.length,
-        red: resultsWithRiskScores.filter((r: FileResult) => r.rating.toLowerCase() === 'red').length,
-        yellow: resultsWithRiskScores.filter((r: FileResult) => r.rating.toLowerCase() === 'yellow').length,
-        green: resultsWithRiskScores.filter((r: FileResult) => r.rating.toLowerCase() === 'green').length,
-        black: resultsWithRiskScores.filter((r: FileResult) => r.rating.toLowerCase() === 'black').length
-      };
-      setStats(newStats);
-      
-      const shares = parseShareData(data, fileType);
-      setShareResults(shares);
-    } catch (e) {
-      // Let outer error handling display the error
-      throw e;
-    }
+  const applyGpoReport = (report: GPOReport, fileName: string, fileSize?: string) => {
+    setGPOReport(report);
+    setLoadedFileName(fileName);
+    setLoadedFileSize(fileSize || '');
+    setAllResults([]);
+    setShareResults([]);
+    const totalSettings = report.gpos.reduce((total, gpo) => total + gpo.settings.length, 0);
+    setStats({
+      total: totalSettings,
+      red: 0,
+      yellow: 0,
+      green: 0,
+      black: 0,
+    });
+    setDuplicateStats(null);
+    setCurrentView('dashboard');
   };
 
   const handleReset = () => {
@@ -257,112 +199,100 @@ function App() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  const processFile = (file: File) => {
-    const fileType = file.name.endsWith('.json') ? 'json' : (file.name.endsWith('.log') ? 'log' : 'text');
+  const snippetFromHead = (head: string, max = 300): string => {
+    if (head.length <= max) return head;
+    return head.slice(0, max) + '...';
+  };
+
+  const processFile = async (file: File) => {
+    const fileType: UploadedFileType = file.name.endsWith('.json')
+      ? 'json'
+      : (file.name.endsWith('.log') ? 'log' : 'text');
     const fileSize = formatFileSize(file.size);
     setIsProcessing(true);
-    file.text().then(text => {
-      try {
-        setErrorInfo(null);
-        if (fileType === 'json') {
-          const jsonData = JSON.parse(text);
-          // If GPO data is already loaded, check if this is a BloodHound file
-          if (GPOReport && detectBloodHoundFileType(jsonData)) {
-            setShowBHModal(true);
-            return;
-          }
-          handleFileUpload(jsonData, 'json', file.name, fileSize);
-        } else {
-          handleFileUpload([text], fileType, file.name, fileSize);
-        }
-      } catch (error: unknown) {
-        console.error('Error processing file:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        let snippet = '';
-        let errorPosition: number | undefined;
-        let tempErrorLineInfo: { actualErrorLine?: number; snippetStartLine?: number } = {};
+    setProcessingStatus('Reading file…');
+    setErrorInfo(null);
 
-        if (fileType === 'json') {
-          let match: RegExpMatchArray | null = null;
-          const lineColumnMatch = errorMessage.match(/line (\d+) column (\d+)/);
-          if (lineColumnMatch) {
-            const lineNum = parseInt(lineColumnMatch[1], 10);
-            const colNum = parseInt(lineColumnMatch[2], 10);
-            const lines = text.split('\n');
-            let position = 0;
-            const targetLine = Math.min(lineNum - 1, lines.length - 1);
-            for (let i = 0; i < targetLine; i++) {
-              position += lines[i].length + 1;
-            }
-            position += colNum - 1;
-            match = ['', position.toString()] as RegExpMatchArray;
-          }
-          if (!match) match = errorMessage.match(/position (\d+)/);
-          if (!match) match = errorMessage.match(/at position (\d+)/);
-          if (!match) match = errorMessage.match(/column (\d+)/);
-
-          if (match) {
-            const absolutePosition = parseInt(match[1], 10);
-            let start: number, end: number, actualErrorLine: number | undefined, snippetStartLine: number | undefined;
-            if (lineColumnMatch) {
-              const lineNum = parseInt(lineColumnMatch[1], 10);
-              const lines = text.split('\n');
-              const startLine = Math.max(0, lineNum - 3);
-              const endLine = Math.min(lines.length, lineNum + 2);
-              start = 0;
-              for (let i = 0; i < startLine; i++) start += lines[i].length + 1;
-              end = start;
-              for (let i = startLine; i < endLine; i++) end += lines[i].length + 1;
-              end = Math.min(text.length, end);
-              actualErrorLine = lineNum;
-              snippetStartLine = startLine + 1;
-            } else {
-              start = Math.max(0, absolutePosition - 150);
-              end = Math.min(text.length, absolutePosition + 150);
-            }
-            snippet = text.substring(start, end);
-            let relativePosition = absolutePosition - start;
-            if (start > 0) { snippet = '...' + snippet; relativePosition += 3; }
-            if (end < text.length) { snippet = snippet + '...'; }
-            errorPosition = relativePosition;
-            tempErrorLineInfo = { actualErrorLine, snippetStartLine };
-          } else {
-            const errorMsg = errorMessage.toLowerCase();
-            if (errorMsg.includes('unexpected end') || errorMsg.includes('unterminated') || errorMsg.includes('expected') || errorMsg.includes('eof') || errorMsg.includes('end of') || errorMsg.includes('missing') || errorMsg.includes('incomplete')) {
-              const start = Math.max(0, text.length - 300);
-              snippet = text.substring(start);
-              if (start > 0) snippet = '...' + snippet;
-              errorPosition = text.length - (text.length - start);
-            } else {
-              snippet = text.substring(0, 300);
-              if (text.length > 300) snippet = snippet + '...';
-            }
-          }
-        } else {
-          snippet = text.substring(0, 300);
-          if (text.length > 300) snippet = snippet + '...';
-        }
-
-        setErrorInfo({
-          message: errorMessage || 'An unknown error occurred while processing the file.',
-          snippet,
-          errorPosition,
-          fileName: file.name,
-          fileType,
-          actualLineNumber: tempErrorLineInfo?.actualErrorLine,
-          snippetStartLine: tempErrorLineInfo?.snippetStartLine
-        });
-      }
-    }).catch(error => {
-      console.error('Error reading file:', error);
-      setErrorInfo({
-        message: 'Error reading file. Please check if the file is corrupted or unreadable.',
-        fileName: file.name,
-        fileType
+    try {
+      const processed = await processUploadedFile(file, {
+        gpoAlreadyLoaded: !!GPOReport,
+        onProgress: setProcessingStatus,
       });
-    }).finally(() => {
+
+      if (processed.kind === 'bloodhound') {
+        setShowBHModal(true);
+        return;
+      }
+
+      if (processed.kind === 'gpo') {
+        applyGpoReport(processed.report, file.name, fileSize);
+        return;
+      }
+
+      const { results, shares, duplicateStats } = processed.output;
+
+      setProcessingStatus(
+        results.length > 5000
+          ? `Scoring ${results.length.toLocaleString()} findings…`
+          : 'Scoring findings…'
+      );
+      const resultsWithRiskScores = await applyInChunks(
+        results,
+        (result) => ({ ...result, riskScore: calculateRiskScore(result) }),
+        2500,
+        (done, total) => {
+          setProcessingStatus(`Scoring findings… ${done.toLocaleString()} / ${total.toLocaleString()}`);
+        }
+      );
+
+      const newStats = {
+        total: resultsWithRiskScores.length,
+        red: 0,
+        yellow: 0,
+        green: 0,
+        black: 0,
+      };
+      for (const r of resultsWithRiskScores) {
+        const rating = r.rating.toLowerCase();
+        if (rating === 'red') newStats.red++;
+        else if (rating === 'yellow') newStats.yellow++;
+        else if (rating === 'green') newStats.green++;
+        else if (rating === 'black') newStats.black++;
+      }
+
+      setAllResults(resultsWithRiskScores);
+      setShareResults(shares);
+      setLoadedFileName(file.name);
+      setLoadedFileSize(fileSize || '');
+      setCurrentView('dashboard');
+      setGPOReport(null);
+      setDuplicateStats(
+        duplicateStats && duplicateStats.duplicatesRemoved > 0 ? duplicateStats : null
+      );
+      setStats(newStats);
+    } catch (error: unknown) {
+      console.error('Error processing file:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      // Never split a multi-hundred-MB buffer just to build an error snippet.
+      let snippet = '';
+      try {
+        const head = await file.slice(0, 4096).text();
+        snippet = snippetFromHead(head);
+      } catch {
+        snippet = '';
+      }
+
+      setErrorInfo({
+        message: errorMessage || 'An unknown error occurred while processing the file.',
+        snippet,
+        fileName: file.name,
+        fileType,
+      });
+    } finally {
       setIsProcessing(false);
-    });
+      setProcessingStatus('Processing file...');
+    }
   };
 
 
@@ -812,7 +742,7 @@ function App() {
       {/* Loading Spinner Overlay */}
       {isProcessing && (
         <div className="spinner-overlay">
-          <Spinner size="large" label="Processing file..." />
+          <Spinner size="large" label={processingStatus} />
         </div>
       )}
 

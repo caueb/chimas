@@ -1,4 +1,20 @@
-import { SnafflerJsonData, SnafflerEntry, FileResult, ShareResult, CustomFilter, DuplicateStats, Stats, ShareInfo } from '../types';
+import { SnafflerJsonData, SnafflerEntry, FileResult, ShareResult, CustomFilter, DuplicateStats, Stats, ShareInfo, SnafflerParseOutput } from '../types';
+
+/** Avoid JSON.parse() of a single in-memory document above this size. */
+export const LARGE_JSON_PARSE_LIMIT = 8 * 1024 * 1024;
+
+/** Keep match snippets bounded so a single noisy event cannot blow memory. */
+export const MAX_MATCH_CONTEXT_CHARS = 32 * 1024;
+
+function limitMatchContext(value: string): string {
+  if (!value || value.length <= MAX_MATCH_CONTEXT_CHARS) return value;
+  return value.slice(0, MAX_MATCH_CONTEXT_CHARS) + '\n…[truncated]';
+}
+
+/** Yield to the browser event loop so the spinner can paint and the tab stays responsive. */
+export function yieldToUi(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 /**
  * Strip UTF-8 BOM (Byte Order Mark) from string if present.
@@ -146,36 +162,262 @@ interface EventProperties {
   [key: string]: ColorKeyData | undefined;
 }
 
-export function parseSnafflerJson(jsonData: SnafflerJsonData): { results: FileResult[]; duplicateStats?: DuplicateStats } {
-  const results: FileResult[] = [];
-  const seenEntries = new Set<string>();
+/** Accumulator used by both the sync parser and the streaming file processor. */
+export interface SnafflerParseAccumulator {
+  results: FileResult[];
+  shareResults: ShareResult[];
+  seenFiles: Set<string>;
+  jsonObjectsParsed: number;
+}
 
-  for (const entry of jsonData.entries) {
-    if (entry.level === 'Warn' && entry.message.includes('[File]')) {
-      const fileResults = parseJsonFileEntry(entry);
-      
-      for (const result of fileResults) {
-        // Create a unique key for this entry based on all properties
-        // This ensures we only deduplicate entries that are completely identical
-        const entryKey = `${result.fullPath}|${result.ruleName}|${result.matchContext}|${result.creationTime}|${result.lastModified}|${result.rating}|${result.size}`;
-        
-        // Only add if we haven't seen this exact entry before
-        if (!seenEntries.has(entryKey)) {
-          seenEntries.add(entryKey);
-          results.push(result);
-        }
-      }
+export function createSnafflerAccumulator(): SnafflerParseAccumulator {
+  return {
+    results: [],
+    shareResults: [],
+    seenFiles: new Set<string>(),
+    jsonObjectsParsed: 0,
+  };
+}
+
+function makeFileDedupKey(result: FileResult): string {
+  // Avoid storing the full matchContext (can be huge) in the dedup set.
+  const ctx = result.matchContext || '';
+  return `${result.fullPath}\0${result.ruleName}\0${result.rating}\0${result.size}\0${ctx.length}\0${ctx.slice(0, 80)}`;
+}
+
+function addFileResult(acc: SnafflerParseAccumulator, result: FileResult): void {
+  const key = makeFileDedupKey(result);
+  if (acc.seenFiles.has(key)) return;
+  acc.seenFiles.add(key);
+  acc.results.push(result);
+}
+
+/**
+ * Accept Snaffler's wrapped `{entries: [...]}`, a raw array, or a single entry object.
+ */
+export function normalizeJsonEntries(data: unknown): SnafflerEntry[] {
+  if (!data) return [];
+  if (Array.isArray(data)) return data as SnafflerEntry[];
+  if (typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    if (Array.isArray(obj.entries)) return obj.entries as SnafflerEntry[];
+    if (
+      typeof obj.message === 'string' ||
+      typeof obj.level === 'string' ||
+      obj.eventProperties
+    ) {
+      return [data as SnafflerEntry];
+    }
+  }
+  return [];
+}
+
+function looksLikeJsonObjectLine(line: string): boolean {
+  const s = line.trim();
+  return s.startsWith('{') && s.length > 2;
+}
+
+/**
+ * Parse one NDJSON / FixJSONOutput line into a Snaffler entry.
+ * Handles trailing commas and the `{ "entries": [` / `]}` wrapper lines.
+ */
+export function tryParseJsonLine(line: string): SnafflerEntry | null {
+  let s = line.trim();
+  if (!s) return null;
+  if (s === '{' || s === '}' || s === '[' || s === ']' || s === '],' || s === ']}' || s === '},') {
+    return null;
+  }
+  if (s.startsWith('{"entries"') || s.startsWith('{ "entries"') || s === '{"entries": [') {
+    return null;
+  }
+  if (s.endsWith(',')) s = s.slice(0, -1);
+  if (!s.startsWith('{') || !s.endsWith('}')) return null;
+  try {
+    const parsed = JSON.parse(s);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    return parsed as SnafflerEntry;
+  } catch {
+    return null;
+  }
+}
+
+export function ingestSnafflerEntry(acc: SnafflerParseAccumulator, entry: SnafflerEntry): void {
+  acc.jsonObjectsParsed++;
+  if (!entry || typeof entry !== 'object') return;
+
+  const message = typeof entry.message === 'string' ? entry.message : '';
+  const isFile = message.includes('[File]');
+  const isShare = message.includes('[Share]');
+
+  // Structured eventProperties (typical after Snaffler normalises JSON).
+  // Also accept entries that omit `level` — NDJSON mid-crash may still have FileResult data.
+  if (isFile || (entry.eventProperties && Object.keys(entry.eventProperties).length > 0)) {
+    const fileResults = parseJsonFileEntry(entry);
+    for (const result of fileResults) {
+      addFileResult(acc, result);
     }
   }
 
-  return { results, duplicateStats: undefined };
+  if (isShare || (entry.eventProperties && Object.keys(entry.eventProperties).length > 0)) {
+    const shares = parseJsonShareEntry(entry);
+    if (shares.length > 0) {
+      acc.shareResults.push(...shares);
+    }
+  }
+}
+
+export function ingestSnafflerTextLine(acc: SnafflerParseAccumulator, line: string): void {
+  if (!line) return;
+  if (line.includes('[File]')) {
+    const result = parseTextFileLine(line);
+    if (result) addFileResult(acc, result);
+  }
+  if (line.includes('[Share]')) {
+    const result = parseTextShareLine(line);
+    if (result) acc.shareResults.push(result);
+  }
+}
+
+/** Returns true when the line was a JSON object (even if it produced no findings). */
+export function ingestSnafflerJsonLine(acc: SnafflerParseAccumulator, line: string): boolean {
+  if (!looksLikeJsonObjectLine(line)) return false;
+  const entry = tryParseJsonLine(line);
+  if (!entry) return false;
+  ingestSnafflerEntry(acc, entry);
+  return true;
+}
+
+export function finalizeSnafflerParse(acc: SnafflerParseAccumulator): SnafflerParseOutput {
+  return {
+    results: acc.results,
+    shares: collectShareInfo(acc.results, acc.shareResults),
+    duplicateStats: undefined,
+  };
+}
+
+/**
+ * Walk a string without `split('\n')`, which would allocate an array of every line.
+ */
+export function* iterateLines(text: string): Generator<string> {
+  let start = 0;
+  const len = text.length;
+  for (let i = 0; i < len; i++) {
+    if (text.charCodeAt(i) === 10) {
+      let end = i;
+      if (end > start && text.charCodeAt(end - 1) === 13) end--;
+      yield text.slice(start, end);
+      start = i + 1;
+    }
+  }
+  if (start < len) {
+    let end = len;
+    if (text.charCodeAt(end - 1) === 13) end--;
+    yield text.slice(start, end);
+  }
+}
+
+function extractNextJsonObject(text: string, from: number): { json: string; next: number } | null {
+  const len = text.length;
+  let i = from;
+  while (i < len && text.charCodeAt(i) !== 123) i++; // '{'
+  if (i >= len) return null;
+
+  const objStart = i;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (; i < len; i++) {
+    const c = text.charCodeAt(i);
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (c === 92 && inString) { // '\\'
+      escape = true;
+      continue;
+    }
+    if (c === 34) { // '"'
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (c === 123) depth++;
+    else if (c === 125) {
+      depth--;
+      if (depth === 0) {
+        return { json: text.slice(objStart, i + 1), next: i + 1 };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract and parse individual objects from a large `{entries:[...]}` or `[...]`
+ * document without JSON.parse() of the whole payload.
+ */
+export function ingestJsonDocumentByExtraction(acc: SnafflerParseAccumulator, text: string): void {
+  const head = text.slice(0, 512);
+  let offset = 0;
+  const entriesKey = head.indexOf('"entries"');
+  if (entriesKey !== -1 && entriesKey < 200) {
+    const arr = text.indexOf('[', entriesKey);
+    if (arr !== -1) offset = arr + 1;
+  } else {
+    const trimmedStart = text.match(/^\s*/)?.[0].length ?? 0;
+    if (text[trimmedStart] === '[') offset = trimmedStart + 1;
+  }
+
+  let extracted = extractNextJsonObject(text, offset);
+  while (extracted) {
+    try {
+      const parsed = JSON.parse(extracted.json);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        ingestSnafflerEntry(acc, parsed as SnafflerEntry);
+      }
+    } catch {
+      // Skip malformed objects (truncated last line from a crashed Snaffler run)
+    }
+    extracted = extractNextJsonObject(text, extracted.next);
+  }
+}
+
+export function ingestJsonDocument(acc: SnafflerParseAccumulator, text: string): void {
+  const cleaned = stripBOM(text);
+  if (cleaned.length > LARGE_JSON_PARSE_LIMIT) {
+    ingestJsonDocumentByExtraction(acc, cleaned);
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(cleaned);
+    const entries = normalizeJsonEntries(parsed);
+    if (entries.length === 0 && parsed && typeof parsed === 'object') {
+      // Parsed successfully but wasn't Snaffler-shaped — try extraction as a fallback.
+      ingestJsonDocumentByExtraction(acc, cleaned);
+      return;
+    }
+    for (const entry of entries) {
+      ingestSnafflerEntry(acc, entry);
+    }
+  } catch {
+    ingestJsonDocumentByExtraction(acc, cleaned);
+  }
+}
+
+export function parseSnafflerJson(jsonData: SnafflerJsonData | unknown): { results: FileResult[]; duplicateStats?: DuplicateStats } {
+  const acc = createSnafflerAccumulator();
+  for (const entry of normalizeJsonEntries(jsonData)) {
+    ingestSnafflerEntry(acc, entry);
+  }
+  return { results: acc.results, duplicateStats: undefined };
 }
 
 function parseJsonFileEntry(entry: SnafflerEntry): FileResult[] {
   const results: FileResult[] = [];
   try {
-    // Extract data from eventProperties (cast to typed interface)
-    const eventProps = entry.eventProperties as EventProperties;
+    const eventProps = (entry.eventProperties || {}) as EventProperties;
 
     // Case 1: Check if eventProperties contains structured FileResult data
     if (Object.keys(eventProps).length > 0) {
@@ -189,7 +431,7 @@ function parseJsonFileEntry(entry: SnafflerEntry): FileResult[] {
           if (fileResult.FileInfo && fileResult.TextResult && fileResult.MatchedRule) {
             // Parse the match context to handle escaped characters
             const rawMatchContext = fileResult.TextResult.MatchContext || '';
-            const parsedMatchContext = parseMatchContext(rawMatchContext);
+            const parsedMatchContext = limitMatchContext(parseMatchContext(rawMatchContext));
             
             // Use UTC timestamps if available, fall back to regular timestamps
             const creationTime = fileResult.FileInfo.CreationTimeUtc || fileResult.FileInfo.CreationTime || '';
@@ -220,7 +462,7 @@ function parseJsonFileEntry(entry: SnafflerEntry): FileResult[] {
     }
     
     // Case 2: If eventProperties is empty, try to parse the message field as a TXT format line
-    if (Object.keys(eventProps).length === 0 && entry.message.includes('[File]')) {
+    if (Object.keys(eventProps).length === 0 && typeof entry.message === 'string' && entry.message.includes('[File]')) {
       try {
         // Parse the message field using the same logic as parseTextFileLine
         const result = parseTextFileLine(entry.message);
@@ -240,76 +482,51 @@ function parseJsonFileEntry(entry: SnafflerEntry): FileResult[] {
 }
 
 export function parseSnafflerText(textData: string): { results: FileResult[]; duplicateStats?: DuplicateStats } {
-  const results: FileResult[] = [];
-  const seenEntries = new Set<string>();
-  const lines = textData.split('\n');
-
-  for (const line of lines) {
-    if (line.trim() && line.includes('[File]')) {
+  const acc = createSnafflerAccumulator();
+  for (const line of iterateLines(textData)) {
+    if (line.includes('[File]')) {
       const result = parseTextFileLine(line);
-      if (result) {
-        // Create a unique key for this entry based on all properties
-        // This ensures we only deduplicate entries that are completely identical
-        const entryKey = `${result.fullPath}|${result.ruleName}|${result.matchContext}|${result.creationTime}|${result.lastModified}|${result.rating}|${result.size}`;
-        
-        // Only add if we haven't seen this exact entry before
-        if (!seenEntries.has(entryKey)) {
-          seenEntries.add(entryKey);
-          results.push(result);
-        }
-      }
+      if (result) addFileResult(acc, result);
     }
   }
-
-  return { results, duplicateStats: undefined };
+  return { results: acc.results, duplicateStats: undefined };
 }
+
+const VALID_RATINGS = new Set(['Red', 'Green', 'Yellow', 'Black']);
+const SIZE_TOKEN = /^\d+(?:\.\d+)?(?:B|kB|MB|GB)$/i;
+const DATE_TOKEN = /^\d{4}-\d{1,2}-\d{1,2}\s+\S*Z$/;
 
 function parseTextFileLine(line: string): FileResult | null {
   try {
-    
-    // Extract user context from the beginning
-    const userContextMatch = line.match(/^\[([^\]]+)\]/);
-    const userContext = userContextMatch ? userContextMatch[1] : '';
-    
-    // Extract rating using regex lookbehind/lookahead (similar to Python approach)
-    const ratingMatch = line.match(/(?<=\{)(.*?)(?=\})/);
-    if (!ratingMatch) return null;
-    const rating = ratingMatch[1] as 'Red' | 'Green' | 'Yellow' | 'Black';
-    
-    // Extract full path using regex lookbehind/lookahead
-    const fullPathMatch = line.match(/(?<=>\()(.*?)(?=\))/);
-    if (!fullPathMatch) return null;
-    const fullPath = fullPathMatch[1];
-    
-    // Extract creation time using regex (similar to Python approach)
-    const creationTimeMatch = line.match(/^.*\|(\d{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01]) .*?Z)/);
-    const lastModified = creationTimeMatch ? creationTimeMatch[1] : '';
-    
-    // Extract file name from the full path
-    const pathParts = fullPath.split('\\');
-    const fileName = pathParts[pathParts.length - 1] || '';
-    
-    // Extract rule name from the rule details section
-    const ruleDetailsMatch = line.match(/(?<=\<)(.*?)(?=\>)/);
+    let userContext = '';
+    if (line.charCodeAt(0) === 91) { // '['
+      const close = line.indexOf(']');
+      if (close > 0) userContext = line.slice(1, close);
+    }
+
+    // {Rating} — indexOf stays linear even on multi-megabyte match-context lines
+    const ratingStart = line.indexOf('{');
+    if (ratingStart === -1) return null;
+    const ratingEnd = line.indexOf('}', ratingStart + 1);
+    if (ratingEnd === -1) return null;
+    const rating = line.slice(ratingStart + 1, ratingEnd);
+    if (!VALID_RATINGS.has(rating)) return null;
+
+    // <RuleName|RWM|pattern|size|timestamp>
+    const lt = line.indexOf('<', ratingEnd);
+    const gt = lt === -1 ? -1 : line.indexOf('>', lt + 1);
     let ruleName = '';
     let size = '';
-    let matchContext = '';
-    
-    // Permission flags from Snaffler text format:
-    // <RuleName|RWM|matchPattern|size|timestamp>
-    // Second pipe field is ACL flags when present (R=read, W=write, M=modify)
+    let lastModified = '';
     let rwStatus: FileResult['rwStatus'] = undefined;
 
-    if (ruleDetailsMatch) {
-      const ruleDetails = ruleDetailsMatch[1];
+    if (lt !== -1 && gt !== -1) {
+      const ruleDetails = line.slice(lt + 1, gt);
       const ruleParts = ruleDetails.split('|');
-      if (ruleParts.length >= 1) {
-        ruleName = ruleParts[0];
-      }
+      ruleName = ruleParts[0] || '';
 
       if (ruleParts.length >= 2) {
         const permFlags = ruleParts[1].trim().toUpperCase();
-        // Only treat short R/W/M tokens as permissions (not regex/patterns)
         if (/^[RWM]+$/.test(permFlags)) {
           rwStatus = {
             readable: permFlags.includes('R'),
@@ -318,31 +535,35 @@ function parseTextFileLine(line: string): FileResult | null {
           };
         }
       }
-      
-      // Try to extract size from the rule details
-      // Look for size pattern in the rule details
-      const sizeMatch = ruleDetails.match(/(\d+(?:\.\d+)?(?:B|kB|MB|GB))/);
-      if (sizeMatch) {
-        size = sizeMatch[1];
+
+      for (const part of ruleParts) {
+        if (!size && SIZE_TOKEN.test(part)) size = part;
+        else if (!lastModified && DATE_TOKEN.test(part)) lastModified = part;
+      }
+
+      if (!size) {
+        const sizeMatch = ruleDetails.match(/(\d+(?:\.\d+)?(?:B|kB|MB|GB))/);
+        if (sizeMatch) size = sizeMatch[1];
       }
     }
-    
-    // Extract everything after the closing parenthesis - this contains the match context
-    // We need to be more specific about which closing parenthesis to capture after
-    // Look for the pattern: >(path) match_context
-    const pathEndMatch = line.match(/(?<=>\()(.*?)(?=\))/);
-    if (pathEndMatch) {
-      const pathEndIndex = line.indexOf(pathEndMatch[0], line.indexOf('>('));
-      if (pathEndIndex !== -1) {
-        const afterPath = line.substring(pathEndIndex + pathEndMatch[0].length + 1); // +1 for the closing parenthesis
-        if (afterPath) {
-          matchContext = parseMatchContext(afterPath.trim());
-        }
-      }
-    }
-    
+
+    // >(path) match_context
+    const searchFrom = gt === -1 ? ratingEnd : gt;
+    const pathMarker = line.indexOf('>(', searchFrom);
+    if (pathMarker === -1) return null;
+    const pathStart = pathMarker + 2;
+    const pathEnd = line.indexOf(')', pathStart);
+    if (pathEnd === -1) return null;
+    const fullPath = line.slice(pathStart, pathEnd);
+
+    const pathParts = fullPath.split('\\');
+    const fileName = pathParts[pathParts.length - 1] || '';
+
+    const afterPath = line.slice(pathEnd + 1).trim();
+    const matchContext = afterPath ? limitMatchContext(parseMatchContext(afterPath)) : '';
+
     return {
-      rating,
+      rating: rating as 'Red' | 'Green' | 'Yellow' | 'Black',
       fullPath,
       fileName,
       creationTime: lastModified,
@@ -350,7 +571,7 @@ function parseTextFileLine(line: string): FileResult | null {
       size,
       matchContext,
       ruleName,
-      matchedStrings: [matchContext],
+      matchedStrings: matchContext ? [matchContext] : [],
       triage: rating,
       userContext,
       rwStatus,
@@ -374,21 +595,35 @@ export function calculateStats(results: FileResult[]): Stats {
   return stats;
 }
 
-export function parseSnafflerData(data: SnafflerJsonData | string | string[], fileType: 'json' | 'text' | 'log'): { results: FileResult[]; duplicateStats?: DuplicateStats } {
-  let parseResult: { results: FileResult[]; duplicateStats?: DuplicateStats } | undefined;
+export function parseSnafflerOutput(
+  data: SnafflerJsonData | string | string[],
+  fileType: 'json' | 'text' | 'log'
+): SnafflerParseOutput {
+  const acc = createSnafflerAccumulator();
 
   if (fileType === 'json') {
-    parseResult = parseSnafflerJson(data as SnafflerJsonData);
+    if (typeof data === 'string') {
+      ingestJsonDocument(acc, data);
+    } else if (Array.isArray(data) && data.length === 1 && typeof data[0] === 'string') {
+      ingestJsonDocument(acc, data[0]);
+    } else {
+      for (const entry of normalizeJsonEntries(data)) {
+        ingestSnafflerEntry(acc, entry);
+      }
+    }
   } else {
-    const textData = Array.isArray(data) ? data[0] : data;
-    parseResult = parseSnafflerText(textData as string);
+    const textData = Array.isArray(data) ? String(data[0] ?? '') : String(data ?? '');
+    for (const line of iterateLines(textData)) {
+      ingestSnafflerTextLine(acc, line);
+    }
   }
 
-  if (!parseResult) {
-    throw new Error('Not a valid Snaffler output file. Please check the file content and try again.');
-  }
-  // Return empty results if no findings - this is valid (clean environment)
-  return parseResult;
+  return finalizeSnafflerParse(acc);
+}
+
+export function parseSnafflerData(data: SnafflerJsonData | string | string[], fileType: 'json' | 'text' | 'log'): { results: FileResult[]; duplicateStats?: DuplicateStats } {
+  const parsed = parseSnafflerOutput(data, fileType);
+  return { results: parsed.results, duplicateStats: parsed.duplicateStats };
 }
 
 // Internal share map entry type
@@ -407,25 +642,10 @@ interface ShareMapEntry {
   rating: string;
 }
 
-export function parseShareData(data: SnafflerJsonData | string | string[], fileType: 'json' | 'text' | 'log'): ShareInfo[] {
+export function collectShareInfo(fileResults: FileResult[], shareResults: ShareResult[]): ShareInfo[] {
   const shares: ShareInfo[] = [];
   const shareMap = new Map<string, ShareMapEntry>();
 
-  // Extract share information from file paths
-  let fileResults: FileResult[] = [];
-  let shareResults: ShareResult[] = [];
-
-  if (fileType === 'json') {
-    const parseResult = parseSnafflerJson(data as SnafflerJsonData);
-    fileResults = parseResult.results;
-    shareResults = parseSnafflerShares(data as SnafflerJsonData);
-  } else {
-    const textData = Array.isArray(data) ? data[0] : data;
-    const parseResult = parseSnafflerText(textData as string);
-    fileResults = parseResult.results;
-    shareResults = parseSnafflerSharesText(textData as string);
-  }
-  
   // First, process direct share entries from [Share] logs
   shareResults.forEach(share => {
     const shareKey = `${share.systemId}\\${share.shareName}`;
@@ -528,6 +748,10 @@ export function parseShareData(data: SnafflerJsonData | string | string[], fileT
   });
   
   return shares;
+}
+
+export function parseShareData(data: SnafflerJsonData | string | string[], fileType: 'json' | 'text' | 'log'): ShareInfo[] {
+  return parseSnafflerOutput(data, fileType).shares;
 }
 
 // Helper function to extract and normalize system identifiers
@@ -686,13 +910,13 @@ export function getDuplicateStats(originalCount: number, finalCount: number): {
 /**
  * Parse [Share] entries from Snaffler JSON output
  */
-export function parseSnafflerShares(jsonData: SnafflerJsonData): ShareResult[] {
+export function parseSnafflerShares(jsonData: SnafflerJsonData | unknown): ShareResult[] {
   const results: ShareResult[] = [];
 
-  for (const entry of jsonData.entries) {
-    if (entry.level === 'Warn' && entry.message.includes('[Share]')) {
-      const shareResults = parseJsonShareEntry(entry);
-      results.push(...shareResults);
+  for (const entry of normalizeJsonEntries(jsonData)) {
+    const message = typeof entry.message === 'string' ? entry.message : '';
+    if (message.includes('[Share]')) {
+      results.push(...parseJsonShareEntry(entry));
     }
   }
 
@@ -706,7 +930,7 @@ function parseJsonShareEntry(entry: SnafflerEntry): ShareResult[] {
   const results: ShareResult[] = [];
   try {
     // Extract data from eventProperties (cast to typed interface)
-    const eventProps = entry.eventProperties as EventProperties;
+    const eventProps = (entry.eventProperties || {}) as EventProperties;
 
     // Look for color keys (Red, Green, Yellow, Black) that contain ShareResult data
     const colorKeys: Array<'Red' | 'Green' | 'Yellow' | 'Black'> = ['Red', 'Green', 'Yellow', 'Black'];
@@ -761,10 +985,9 @@ function parseJsonShareEntry(entry: SnafflerEntry): ShareResult[] {
  */
 export function parseSnafflerSharesText(textData: string): ShareResult[] {
   const results: ShareResult[] = [];
-  const lines = textData.split('\n');
 
-  for (const line of lines) {
-    if (line.trim() && line.includes('[Share]')) {
+  for (const line of iterateLines(textData)) {
+    if (line.includes('[Share]')) {
       const result = parseTextShareLine(line);
       if (result) {
         results.push(result);

@@ -1,8 +1,24 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FileResult } from '../types';
 import { extractUserInfo, safeDateTimestamp } from '../utils/parser';
 import { formatFileSize } from '../utils/formatting';
 import { FileTypeChart, RatingDistributionChart } from './charts';
+
+function topN<T>(items: T[], n: number, compare: (a: T, b: T) => number): T[] {
+  const top: T[] = [];
+  for (const item of items) {
+    if (top.length < n) {
+      top.push(item);
+      top.sort(compare);
+      continue;
+    }
+    if (compare(item, top[top.length - 1]) < 0) {
+      top[top.length - 1] = item;
+      top.sort(compare);
+    }
+  }
+  return top;
+}
 
 interface DashboardProps {
   stats: {
@@ -22,102 +38,97 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareResults, onNavigateToResults, onFilterBySystem, onFilterByShare, onFilterByExtension, onSelectFile }) => {
-  const getTopSystems = () => {
+  const {
+    topSystems,
+    topFileTypes,
+    largestFiles,
+    recentFiles,
+    highestRiskFiles,
+    userInfo,
+  } = useMemo(() => {
     const systemCounts: Record<string, number> = {};
-    
-    allResults.forEach(result => {
+    const fileTypeCounts: Record<string, number> = {};
+
+    for (const result of allResults) {
       const pathMatch = result.fullPath.match(/\\\\([^\\]+)/);
       if (pathMatch) {
         const systemId = pathMatch[1];
         systemCounts[systemId] = (systemCounts[systemId] || 0) + 1;
       }
-    });
-    
-    return Object.entries(systemCounts)
-      .map(([systemId, count]) => ({ ip: systemId, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-  };
 
-  const getTopFileTypes = () => {
-    const fileTypeCounts: Record<string, number> = {};
-    
-    allResults.forEach(result => {
-      // Extract extension from the actual file name, not content
       const fileName = result.fileName;
       const lastDotIndex = fileName.lastIndexOf('.');
-      
-      // Only include files that have a valid extension (not at the end of the filename)
       if (lastDotIndex > 0 && lastDotIndex < fileName.length - 1) {
         const extension = fileName.substring(lastDotIndex + 1).toLowerCase();
-        // Filter out empty extensions and common non-extension patterns
-        if (extension && extension.length > 0 && extension !== 'no-extension') {
+        if (extension && extension !== 'no-extension') {
           fileTypeCounts[extension] = (fileTypeCounts[extension] || 0) + 1;
         }
       }
-    });
-    
-    return Object.entries(fileTypeCounts)
-      .sort(([,a], [,b]) => b - a)
+    }
+
+    const topSystems = Object.entries(systemCounts)
+      .map(([systemId, count]) => ({ ip: systemId, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const topFileTypes = Object.entries(fileTypeCounts)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 10)
       .map(([type, count]) => ({ type, count }));
-  };
 
-  const getLargestFiles = () => {
-    return allResults
-      .filter(result => {
-        // Ensure we have a valid size
+    const largestSource = topN(
+      allResults.filter((result) => {
         const size = parseInt(result.size);
         return !isNaN(size) && size >= 0;
-      })
-      .sort((a, b) => (parseInt(b.size) || 0) - (parseInt(a.size) || 0))
-      .slice(0, 10)
-      .map(result => ({
+      }),
+      10,
+      (a, b) => (parseInt(b.size) || 0) - (parseInt(a.size) || 0)
+    );
+
+    const largestFiles = largestSource.map((result) => ({
+      result,
+      name: result.fileName,
+      size: formatFileSize(result.size),
+      path: result.fullPath,
+      rating: result.rating,
+    }));
+
+    const recentSource = topN(
+      allResults.filter((result) => result.lastModified && safeDateTimestamp(result.lastModified) > 0),
+      10,
+      (a, b) => safeDateTimestamp(b.lastModified) - safeDateTimestamp(a.lastModified)
+    );
+
+    const recentFiles = recentSource.map((result) => {
+      const timestamp = safeDateTimestamp(result.lastModified);
+      const date = timestamp ? new Date(result.lastModified) : null;
+      const formattedDate = date
+        ? `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`
+        : '-';
+      return {
+        result,
         name: result.fileName,
-        size: formatFileSize(result.size),
+        date: formattedDate,
         path: result.fullPath,
-        rating: result.rating
-      }));
-  };
+        rating: result.rating,
+      };
+    });
 
-  const getRecentFiles = () => {
-    return allResults
-      .filter(result => result.lastModified && safeDateTimestamp(result.lastModified) > 0)
-      .sort((a, b) => safeDateTimestamp(b.lastModified) - safeDateTimestamp(a.lastModified))
-      .slice(0, 10)
-      .map(result => {
-        const timestamp = safeDateTimestamp(result.lastModified);
-        const date = timestamp ? new Date(result.lastModified) : null;
-        const formattedDate = date
-          ? `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`
-          : '-';
+    const highestRiskFiles = topN(
+      allResults.filter((result) => result.riskScore && result.riskScore.total > 0),
+      10,
+      (a, b) => (b.riskScore?.total || 0) - (a.riskScore?.total || 0)
+    );
 
-        return {
-        name: result.fileName,
-          date: formattedDate,
-        path: result.fullPath,
-        rating: result.rating
-        };
-      });
-  };
-
-  const getUserInfo = () => {
-    return extractUserInfo(allResults);
-  };
-
-  const getHighestRiskFiles = () => {
-    return allResults
-      .filter(result => result.riskScore && result.riskScore.total > 0)
-      .sort((a, b) => (b.riskScore?.total || 0) - (a.riskScore?.total || 0))
-      .slice(0, 10);
-  };
-
-  const topSystems = getTopSystems();
-  const topFileTypes = getTopFileTypes();
-  const largestFiles = getLargestFiles();
-  const recentFiles = getRecentFiles();
-  const highestRiskFiles = getHighestRiskFiles();
-  const userInfo = getUserInfo();
+    return {
+      topSystems,
+      topFileTypes,
+      largestFiles,
+      recentFiles,
+      highestRiskFiles,
+      userInfo: extractUserInfo(allResults),
+    };
+  }, [allResults]);
 
   return (
     <div className="dashboard">
@@ -278,21 +289,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareRe
             {largestFiles.length > 0 ? (
               <div className="insights-list compact">
                 {largestFiles.map((file, index) => {
-                  // Find the original FileResult from allResults
-                  const originalFile = allResults.find(result => 
-                    result.fileName === file.name && 
-                    result.fullPath === file.path
-                  );
-                  
                   return (
                     <div 
                       key={index} 
                       className="insight-item clickable compact"
                       onClick={() => {
-                        if (originalFile) {
-                          onNavigateToResults();
-                          onSelectFile(originalFile);
-                        }
+                        onNavigateToResults();
+                        onSelectFile(file.result);
                       }}
                     >
                       <div className={`insight-rank compact rating-${file.rating.toLowerCase()}`}>#{index + 1}</div>
@@ -317,21 +320,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareRe
             {recentFiles.length > 0 ? (
               <div className="insights-list compact">
                 {recentFiles.map((file, index) => {
-                  // Find the original FileResult from allResults
-                  const originalFile = allResults.find(result => 
-                    result.fileName === file.name && 
-                    result.fullPath === file.path
-                  );
-                  
                   return (
                     <div 
                       key={index} 
                       className="insight-item clickable compact"
                       onClick={() => {
-                        if (originalFile) {
-                          onNavigateToResults();
-                          onSelectFile(originalFile);
-                        }
+                        onNavigateToResults();
+                        onSelectFile(file.result);
                       }}
                     >
                       <div className={`insight-rank compact rating-${file.rating.toLowerCase()}`}>#{index + 1}</div>

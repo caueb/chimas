@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { FileResult } from '../../types';
 
@@ -24,10 +24,10 @@ const RATING_COLORS = {
 };
 
 export const FileTypeChart: React.FC<FileTypeChartProps> = ({ results }) => {
-  const getFileTypeDistribution = (): FileTypeData[] => {
+  const data = useMemo((): FileTypeData[] => {
     const extensionMap: Record<string, FileTypeData> = {};
 
-    results.forEach((result) => {
+    for (const result of results) {
       const fileName = result.fileName;
       const lastDotIndex = fileName.lastIndexOf('.');
 
@@ -52,14 +52,12 @@ export const FileTypeChart: React.FC<FileTypeChartProps> = ({ results }) => {
           extensionMap[ext][rating]++;
         }
       }
-    });
+    }
 
     return Object.values(extensionMap)
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
-  };
-
-  const data = getFileTypeDistribution();
+  }, [results]);
 
   if (data.length === 0) {
     return (

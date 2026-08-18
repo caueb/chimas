@@ -119,3 +119,10 @@ export interface ShareInfo {
   scanShare: boolean;
   rating: string;
 }
+
+/** Combined result of a single-pass Snaffler parse (files + shares). */
+export interface SnafflerParseOutput {
+  results: FileResult[];
+  shares: ShareInfo[];
+  duplicateStats?: DuplicateStats;
+}

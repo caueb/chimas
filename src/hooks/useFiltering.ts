@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { FileResult, SortField, SortDirection, CustomFilter } from '../types';
 import { RATING_ORDER } from '../utils/constants';
 import { safeDateTimestamp } from '../utils/parser';
+import { useDebounce } from './useDebounce';
 
 interface UseFilteringOptions {
   data: FileResult[];
@@ -56,6 +57,7 @@ export function useFiltering({
   data,
 }: UseFilteringOptions): UseFilteringResult {
   const [filters, setFilters] = useState<FilterState>(initialFilterState);
+  const debouncedSearch = useDebounce(filters.searchFilter, data.length > 5000 ? 250 : 0);
 
   // Memoize filtered and sorted results
   const filteredResults = useMemo(() => {
@@ -69,8 +71,8 @@ export function useFiltering({
     }
 
     // Apply search filter
-    if (filters.searchFilter) {
-      const searchLower = filters.searchFilter.toLowerCase();
+    if (debouncedSearch) {
+      const searchLower = debouncedSearch.toLowerCase();
       filtered = filtered.filter(
         (result) =>
           result.fileName.toLowerCase().includes(searchLower) ||
@@ -156,7 +158,7 @@ export function useFiltering({
     });
 
     return sortedResults;
-  }, [data, filters]);
+  }, [data, filters.ratingFilter, filters.fileExtensionFilter, filters.customFilters, filters.sortField, filters.sortDirection, debouncedSearch]);
 
   // Setter functions
   const setRatingFilter = useCallback((ratings: string[]) => {
