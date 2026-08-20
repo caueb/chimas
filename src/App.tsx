@@ -68,6 +68,8 @@ function App() {
     setSearchFilter,
     setFileExtensionFilter,
     setCustomFilters,
+    setPlaybookFilesFilter,
+    clearPlaybookFilesFilter,
     setSortField,
     setSortDirection,
     handleSort,
@@ -377,23 +379,45 @@ function App() {
     setCurrentView('file-results');
   };
 
+  const handleNavigateToShares = () => {
+    setCurrentView('share-results');
+  };
+
   const handleFilterBySystem = (systemId: string) => {
     setSearchFilter(systemId);
     setRatingFilter(['all']); // Reset rating filter
     setCustomFilters([]); // Reset custom filters
+    clearPlaybookFilesFilter();
   };
 
   const handleFilterByShare = (sharePath: string) => {
     setSearchFilter(sharePath);
     setRatingFilter(['all']); // Reset rating filter
     setCustomFilters([]); // Reset custom filters
+    clearPlaybookFilesFilter();
   };
 
-  const handleFilterByExtension = (extension: string) => {
-    setFileExtensionFilter([extension]);
+  const handleFilterByExtension = (extension: string | string[]) => {
+    const extensions = (Array.isArray(extension) ? extension : [extension]).map((value) =>
+      value.replace(/^\./, '').toLowerCase()
+    );
+    setFileExtensionFilter(extensions);
     setSearchFilter(''); // Clear search filter
     setRatingFilter(['all']); // Reset rating filter
     setCustomFilters([]); // Reset custom filters
+    clearPlaybookFilesFilter();
+  };
+
+  const handleFilterBySearch = (search: string) => {
+    setSearchFilter(search);
+    setFileExtensionFilter([]);
+    setRatingFilter(['all']);
+    setCustomFilters([]);
+    clearPlaybookFilesFilter();
+  };
+
+  const handleFilterByPlaybookFiles = (paths: string[], label: string) => {
+    setPlaybookFilesFilter(paths, label);
   };
 
   const handleSelectFile = (file: FileResult) => {
@@ -403,6 +427,7 @@ function App() {
     setSearchFilter(file.fileName);
     setRatingFilter(['all']); // Reset rating filter
     setCustomFilters([]); // Reset custom filters
+    clearPlaybookFilesFilter();
   };
 
   // Reset to first page when filters change
@@ -493,9 +518,11 @@ function App() {
                 allResults={allResults}
                 shareResults={shareResults}
                 onNavigateToResults={handleNavigateToResults}
+                onNavigateToShares={handleNavigateToShares}
                 onFilterBySystem={handleFilterBySystem}
                 onFilterByShare={handleFilterByShare}
                 onFilterByExtension={handleFilterByExtension}
+                onFilterByPlaybookFiles={handleFilterByPlaybookFiles}
                 onSelectFile={handleSelectFile}
               />
             )}
@@ -520,6 +547,7 @@ function App() {
             setSearchFilter={setSearchFilter}
             setFileExtensionFilter={setFileExtensionFilter}
             setCustomFilters={setCustomFilters}
+            clearPlaybookFilesFilter={clearPlaybookFilesFilter}
             setSortField={setSortField}
             setSortDirection={setSortDirection}
             handleSort={handleSort}

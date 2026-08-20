@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
-import { FileResult } from '../types';
+import { FileResult, ShareInfo } from '../types';
 import { extractUserInfo, safeDateTimestamp } from '../utils/parser';
 import { formatFileSize } from '../utils/formatting';
 import { FileTypeChart, RatingDistributionChart } from './charts';
+import { AttackOpportunities } from './AttackOpportunities';
 
 function topN<T>(items: T[], n: number, compare: (a: T, b: T) => number): T[] {
   const top: T[] = [];
@@ -29,15 +30,17 @@ interface DashboardProps {
     black: number;
   };
   allResults: FileResult[];
-  shareResults: any[];
+  shareResults: ShareInfo[];
   onNavigateToResults: () => void;
+  onNavigateToShares: () => void;
   onFilterBySystem: (systemId: string) => void;
   onFilterByShare: (sharePath: string) => void;
-  onFilterByExtension: (extension: string) => void;
+  onFilterByExtension: (extension: string | string[]) => void;
+  onFilterByPlaybookFiles: (paths: string[], label: string) => void;
   onSelectFile: (file: FileResult) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareResults, onNavigateToResults, onFilterBySystem, onFilterByShare, onFilterByExtension, onSelectFile }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareResults, onNavigateToResults, onNavigateToShares, onFilterBySystem, onFilterByShare, onFilterByExtension, onFilterByPlaybookFiles, onSelectFile }) => {
   const {
     topSystems,
     topFileTypes,
@@ -343,6 +346,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ stats, allResults, shareRe
             )}
           </div>
         </div>
+
+        <AttackOpportunities
+          results={allResults}
+          shareResults={shareResults}
+          onSelectFile={onSelectFile}
+          onFilterByPlaybookFiles={onFilterByPlaybookFiles}
+          onNavigateToResults={onNavigateToResults}
+          onNavigateToShares={onNavigateToShares}
+        />
       </div>
     </div>
   );

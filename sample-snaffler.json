@@ -738,6 +738,286 @@
     {
       "time": "2026-01-10T10:30:21.000Z",
       "level": "Warn",
+      "message": "[File] <Black>\\\\DC01.contoso.local\\SYSVOL\\contoso.local\\Policies\\{31B2F340-016D-11D2-945F-00C04FB984F9}\\MACHINE\\Preferences\\Groups\\Groups.xml</Black>",
+      "eventProperties": {
+        "Black": {
+          "FileResult": {
+            "FileInfo": {
+              "FullName": "\\\\DC01.contoso.local\\SYSVOL\\contoso.local\\Policies\\{31B2F340-016D-11D2-945F-00C04FB984F9}\\MACHINE\\Preferences\\Groups\\Groups.xml",
+              "Name": "Groups.xml",
+              "Length": 1536,
+              "CreationTime": "2018-04-12T09:00:00.000Z",
+              "CreationTimeUtc": "2018-04-12T09:00:00.000Z",
+              "LastWriteTime": "2019-07-01T14:22:00.000Z",
+              "LastWriteTimeUtc": "2019-07-01T14:22:00.000Z",
+              "LastAccessTime": "2026-01-10T10:28:00.000Z",
+              "LastAccessTimeUtc": "2026-01-10T10:28:00.000Z"
+            },
+            "TextResult": {
+              "MatchContext": "<Groups clsid=\"{3125E937-EB16-4b4c-9934-544FC6D24D26}\"><User name=\"Administrator\" cpassword=\"edBBlaBla/QBlaBlaOdcqh+BlaBlaBlaBlaBlaBlalVmQ\" /></Groups>",
+              "MatchedStrings": ["cpassword", "Groups.xml"]
+            },
+            "MatchedRule": {
+              "RuleName": "GPPPassword",
+              "Triage": "Black"
+            },
+            "RwStatus": {
+              "CanRead": true,
+              "CanWrite": false,
+              "CanModify": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-01-10T10:30:21.000Z",
+      "level": "Warn",
+      "message": "[File] <Red>\\\\FS01.contoso.local\\IT$\\certs\\svc-backup.pfx</Red>",
+      "eventProperties": {
+        "Red": {
+          "FileResult": {
+            "FileInfo": {
+              "FullName": "\\\\FS01.contoso.local\\IT$\\certs\\svc-backup.pfx",
+              "Name": "svc-backup.pfx",
+              "Length": 4820,
+              "CreationTime": "2025-09-18T11:00:00.000Z",
+              "CreationTimeUtc": "2025-09-18T11:00:00.000Z",
+              "LastWriteTime": "2025-09-18T11:00:00.000Z",
+              "LastWriteTimeUtc": "2025-09-18T11:00:00.000Z",
+              "LastAccessTime": "2026-01-10T10:28:00.000Z",
+              "LastAccessTimeUtc": "2026-01-10T10:28:00.000Z"
+            },
+            "TextResult": {
+              "MatchContext": "PKCS#12 certificate bundle",
+              "MatchedStrings": ["pfx", "certificate"]
+            },
+            "MatchedRule": {
+              "RuleName": "KeepExtExactCerts",
+              "Triage": "Red"
+            },
+            "RwStatus": {
+              "CanRead": true,
+              "CanWrite": false,
+              "CanModify": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-01-10T10:30:21.000Z",
+      "level": "Warn",
+      "message": "[File] <Red>\\\\FS01.contoso.local\\IT$\\keys\\id_rsa</Red>",
+      "eventProperties": {
+        "Red": {
+          "FileResult": {
+            "FileInfo": {
+              "FullName": "\\\\FS01.contoso.local\\IT$\\keys\\id_rsa",
+              "Name": "id_rsa",
+              "Length": 1679,
+              "CreationTime": "2025-03-02T08:10:00.000Z",
+              "CreationTimeUtc": "2025-03-02T08:10:00.000Z",
+              "LastWriteTime": "2025-03-02T08:10:00.000Z",
+              "LastWriteTimeUtc": "2025-03-02T08:10:00.000Z",
+              "LastAccessTime": "2026-01-10T10:28:00.000Z",
+              "LastAccessTimeUtc": "2026-01-10T10:28:00.000Z"
+            },
+            "TextResult": {
+              "MatchContext": "-----BEGIN OPENSSH PRIVATE KEY-----",
+              "MatchedStrings": ["BEGIN OPENSSH PRIVATE KEY"]
+            },
+            "MatchedRule": {
+              "RuleName": "PrivateKeyFiles",
+              "Triage": "Red"
+            },
+            "RwStatus": {
+              "CanRead": true,
+              "CanWrite": false,
+              "CanModify": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-01-10T10:30:21.000Z",
+      "level": "Warn",
+      "message": "[File] <Red>\\\\FS01.contoso.local\\IT$\\keepass\\IT-Shared.kdbx</Red>",
+      "eventProperties": {
+        "Red": {
+          "FileResult": {
+            "FileInfo": {
+              "FullName": "\\\\FS01.contoso.local\\IT$\\keepass\\IT-Shared.kdbx",
+              "Name": "IT-Shared.kdbx",
+              "Length": 245760,
+              "CreationTime": "2024-11-04T16:00:00.000Z",
+              "CreationTimeUtc": "2024-11-04T16:00:00.000Z",
+              "LastWriteTime": "2026-01-08T09:15:00.000Z",
+              "LastWriteTimeUtc": "2026-01-08T09:15:00.000Z",
+              "LastAccessTime": "2026-01-10T10:28:00.000Z",
+              "LastAccessTimeUtc": "2026-01-10T10:28:00.000Z"
+            },
+            "TextResult": {
+              "MatchContext": "KeePass database",
+              "MatchedStrings": ["kdbx", "keepass"]
+            },
+            "MatchedRule": {
+              "RuleName": "KeepExtExactKeepass",
+              "Triage": "Red"
+            },
+            "RwStatus": {
+              "CanRead": true,
+              "CanWrite": true,
+              "CanModify": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-01-10T10:30:21.000Z",
+      "level": "Warn",
+      "message": "[File] <Red>\\\\FS01.contoso.local\\IT$\\images\\WIN10-admin.vmdk</Red>",
+      "eventProperties": {
+        "Red": {
+          "FileResult": {
+            "FileInfo": {
+              "FullName": "\\\\FS01.contoso.local\\IT$\\images\\WIN10-admin.vmdk",
+              "Name": "WIN10-admin.vmdk",
+              "Length": 21474836480,
+              "CreationTime": "2025-06-01T10:00:00.000Z",
+              "CreationTimeUtc": "2025-06-01T10:00:00.000Z",
+              "LastWriteTime": "2025-12-11T18:40:00.000Z",
+              "LastWriteTimeUtc": "2025-12-11T18:40:00.000Z",
+              "LastAccessTime": "2026-01-10T10:28:00.000Z",
+              "LastAccessTimeUtc": "2026-01-10T10:28:00.000Z"
+            },
+            "TextResult": {
+              "MatchContext": "VMware virtual disk",
+              "MatchedStrings": ["vmdk"]
+            },
+            "MatchedRule": {
+              "RuleName": "KeepExtExactDiskImages",
+              "Triage": "Red"
+            },
+            "RwStatus": {
+              "CanRead": true,
+              "CanWrite": false,
+              "CanModify": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-01-10T10:30:21.000Z",
+      "level": "Warn",
+      "message": "[File] <Black>\\\\BACKUP01.contoso.local\\WindowsImageBackup\\DC01\\ntds.dit</Black>",
+      "eventProperties": {
+        "Black": {
+          "FileResult": {
+            "FileInfo": {
+              "FullName": "\\\\BACKUP01.contoso.local\\WindowsImageBackup\\DC01\\ntds.dit",
+              "Name": "ntds.dit",
+              "Length": 67108864,
+              "CreationTime": "2026-01-09T02:00:00.000Z",
+              "CreationTimeUtc": "2026-01-09T02:00:00.000Z",
+              "LastWriteTime": "2026-01-09T02:15:00.000Z",
+              "LastWriteTimeUtc": "2026-01-09T02:15:00.000Z",
+              "LastAccessTime": "2026-01-10T10:28:00.000Z",
+              "LastAccessTimeUtc": "2026-01-10T10:28:00.000Z"
+            },
+            "TextResult": {
+              "MatchContext": "Active Directory database",
+              "MatchedStrings": ["ntds.dit"]
+            },
+            "MatchedRule": {
+              "RuleName": "KeepExtExactNtds",
+              "Triage": "Black"
+            },
+            "RwStatus": {
+              "CanRead": true,
+              "CanWrite": false,
+              "CanModify": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-01-10T10:30:21.000Z",
+      "level": "Warn",
+      "message": "[File] <Black>\\\\BACKUP01.contoso.local\\WindowsImageBackup\\DC01\\SYSTEM</Black>",
+      "eventProperties": {
+        "Black": {
+          "FileResult": {
+            "FileInfo": {
+              "FullName": "\\\\BACKUP01.contoso.local\\WindowsImageBackup\\DC01\\SYSTEM",
+              "Name": "SYSTEM",
+              "Length": 16777216,
+              "CreationTime": "2026-01-09T02:00:00.000Z",
+              "CreationTimeUtc": "2026-01-09T02:00:00.000Z",
+              "LastWriteTime": "2026-01-09T02:15:00.000Z",
+              "LastWriteTimeUtc": "2026-01-09T02:15:00.000Z",
+              "LastAccessTime": "2026-01-10T10:28:00.000Z",
+              "LastAccessTimeUtc": "2026-01-10T10:28:00.000Z"
+            },
+            "TextResult": {
+              "MatchContext": "Windows SYSTEM registry hive",
+              "MatchedStrings": ["SYSTEM", "hive"]
+            },
+            "MatchedRule": {
+              "RuleName": "RegistryHiveFiles",
+              "Triage": "Black"
+            },
+            "RwStatus": {
+              "CanRead": true,
+              "CanWrite": false,
+              "CanModify": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-01-10T10:30:21.000Z",
+      "level": "Warn",
+      "message": "[File] <Red>\\\\WEB01.contoso.local\\WEBSITE\\unattend.xml</Red>",
+      "eventProperties": {
+        "Red": {
+          "FileResult": {
+            "FileInfo": {
+              "FullName": "\\\\WEB01.contoso.local\\WEBSITE\\unattend.xml",
+              "Name": "unattend.xml",
+              "Length": 4096,
+              "CreationTime": "2024-02-14T12:00:00.000Z",
+              "CreationTimeUtc": "2024-02-14T12:00:00.000Z",
+              "LastWriteTime": "2024-02-14T12:00:00.000Z",
+              "LastWriteTimeUtc": "2024-02-14T12:00:00.000Z",
+              "LastAccessTime": "2026-01-10T10:28:00.000Z",
+              "LastAccessTimeUtc": "2026-01-10T10:28:00.000Z"
+            },
+            "TextResult": {
+              "MatchContext": "<Password><Value>UABhAHMAcwB3ADAAcgBkACEA</Value><PlainText>false</PlainText></Password>",
+              "MatchedStrings": ["Password", "unattend"]
+            },
+            "MatchedRule": {
+              "RuleName": "UnattendFiles",
+              "Triage": "Red"
+            },
+            "RwStatus": {
+              "CanRead": true,
+              "CanWrite": true,
+              "CanModify": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-01-10T10:30:22.000Z",
+      "level": "Warn",
       "message": "[Share] <Yellow>\\\\DC01.contoso.local\\NETLOGON</Yellow>",
       "eventProperties": {
         "Yellow": {

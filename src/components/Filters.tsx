@@ -9,12 +9,15 @@ interface FiltersProps {
   sortField: SortField;
   sortDirection: SortDirection;
   customFilters: CustomFilter[];
+  playbookFilterLabel?: string;
+  playbookFileCount?: number;
   onRatingFilterChange: (value: string[]) => void;
   onSearchFilterChange: (value: string) => void;
   onFileExtensionFilterChange: (value: string[]) => void;
   onSortFieldChange: (field: SortField) => void;
   onSortDirectionChange: (direction: SortDirection) => void;
   onCustomFiltersChange: (filters: CustomFilter[]) => void;
+  onClearPlaybookFilter?: () => void;
   stats: {
     total: number;
     red: number;
@@ -29,9 +32,12 @@ export const Filters: React.FC<FiltersProps> = ({
   ratingFilter,
   fileExtensionFilter,
   customFilters,
+  playbookFilterLabel,
+  playbookFileCount,
   onRatingFilterChange,
   onFileExtensionFilterChange,
   onCustomFiltersChange,
+  onClearPlaybookFilter,
   stats,
   isMinimized = false
 }) => {
@@ -145,6 +151,30 @@ export const Filters: React.FC<FiltersProps> = ({
           </div>
         </div>
       </div>
+
+      {playbookFileCount ? (
+        <div className="filter-section filter-card">
+          <label>Playbook files</label>
+          {!isMinimized && (
+            <div className="custom-filters-list">
+              <div className="custom-filter-item">
+                <span className="filter-text">
+                  {playbookFilterLabel || 'Attack playbook'} ({playbookFileCount})
+                </span>
+                {onClearPlaybookFilter && (
+                  <Button
+                    variant="ghost"
+                    className="remove-filter-button"
+                    onClick={onClearPlaybookFilter}
+                  >
+                    ×
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       <div className="filter-section filter-card">
         <label>File Extension Filter</label>

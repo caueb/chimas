@@ -13,6 +13,8 @@ interface FilterState {
   searchFilter: string;
   fileExtensionFilter: string[];
   customFilters: CustomFilter[];
+  includePaths: string[];
+  playbookFilterLabel: string;
   sortField: SortField;
   sortDirection: SortDirection;
 }
@@ -26,6 +28,8 @@ interface UseFilteringResult {
   setCustomFilters: (
     filters: CustomFilter[] | ((prev: CustomFilter[]) => CustomFilter[])
   ) => void;
+  setPlaybookFilesFilter: (paths: string[], label: string) => void;
+  clearPlaybookFilesFilter: () => void;
   setSortField: (field: SortField) => void;
   setSortDirection: (direction: SortDirection) => void;
   handleSort: (field: SortField) => void;
@@ -37,9 +41,25 @@ const initialFilterState: FilterState = {
   searchFilter: '',
   fileExtensionFilter: [],
   customFilters: [],
+  includePaths: [],
+  playbookFilterLabel: '',
   sortField: 'rating',
   sortDirection: 'desc',
 };
+
+/** Match .ext suffixes plus stems like .env.local or appsettings.json. */
+function matchesFileExtensionFilter(fileName: string, extension: string): boolean {
+  const name = fileName.toLowerCase();
+  const ext = extension.toLowerCase().replace(/^\./, '');
+  if (!ext) return false;
+  return (
+    name.endsWith(`.${ext}`) ||
+    name === `.${ext}` ||
+    name.startsWith(`.${ext}.`) ||
+    name === ext ||
+    name.startsWith(`${ext}.`)
+  );
+}
 
 /**
  * Custom hook for filtering and sorting FileResult data
@@ -86,12 +106,17 @@ export function useFiltering({
 
     // Apply file extension filter
     if (filters.fileExtensionFilter.length > 0) {
-      filtered = filtered.filter((result) => {
-        const fileName = result.fileName.toLowerCase();
-        return filters.fileExtensionFilter.some((extension) =>
-          fileName.endsWith(`.${extension}`)
-        );
-      });
+      filtered = filtered.filter((result) =>
+        filters.fileExtensionFilter.some((extension) =>
+          matchesFileExtensionFilter(result.fileName, extension)
+        )
+      );
+    }
+
+    // Restrict to exact playbook matches (full paths)
+    if (filters.includePaths.length > 0) {
+      const allowed = new Set(filters.includePaths);
+      filtered = filtered.filter((result) => allowed.has(result.fullPath));
     }
 
 
@@ -158,7 +183,7 @@ export function useFiltering({
     });
 
     return sortedResults;
-  }, [data, filters.ratingFilter, filters.fileExtensionFilter, filters.customFilters, filters.sortField, filters.sortDirection, debouncedSearch]);
+  }, [data, filters.ratingFilter, filters.fileExtensionFilter, filters.includePaths, filters.customFilters, filters.sortField, filters.sortDirection, debouncedSearch]);
 
   // Setter functions
   const setRatingFilter = useCallback((ratings: string[]) => {
@@ -171,6 +196,26 @@ export function useFiltering({
 
   const setFileExtensionFilter = useCallback((extensions: string[]) => {
     setFilters((prev) => ({ ...prev, fileExtensionFilter: extensions }));
+  }, []);
+
+  const setPlaybookFilesFilter = useCallback((paths: string[], label: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      includePaths: paths,
+      playbookFilterLabel: label,
+      searchFilter: '',
+      fileExtensionFilter: [],
+      ratingFilter: ['all'],
+      customFilters: [],
+    }));
+  }, []);
+
+  const clearPlaybookFilesFilter = useCallback(() => {
+    setFilters((prev) => ({
+      ...prev,
+      includePaths: [],
+      playbookFilterLabel: '',
+    }));
   }, []);
 
   const setCustomFilters = useCallback(
@@ -218,6 +263,8 @@ export function useFiltering({
     setRatingFilter,
     setSearchFilter,
     setFileExtensionFilter,
+    setPlaybookFilesFilter,
+    clearPlaybookFilesFilter,
     setCustomFilters,
     setSortField,
     setSortDirection,

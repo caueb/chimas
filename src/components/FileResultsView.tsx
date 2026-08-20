@@ -19,6 +19,8 @@ interface FilterState {
   searchFilter: string;
   fileExtensionFilter: string[];
   customFilters: CustomFilter[];
+  includePaths: string[];
+  playbookFilterLabel: string;
   sortField: SortField;
   sortDirection: SortDirection;
 }
@@ -44,6 +46,7 @@ interface FileResultsViewProps {
   setSearchFilter: (search: string) => void;
   setFileExtensionFilter: (extensions: string[]) => void;
   setCustomFilters: (filters: CustomFilter[] | ((prev: CustomFilter[]) => CustomFilter[])) => void;
+  clearPlaybookFilesFilter: () => void;
   setSortField: (field: SortField) => void;
   setSortDirection: (direction: SortDirection) => void;
   handleSort: (field: SortField) => void;
@@ -83,6 +86,7 @@ export const FileResultsView: React.FC<FileResultsViewProps> = ({
   setSearchFilter,
   setFileExtensionFilter,
   setCustomFilters,
+  clearPlaybookFilesFilter,
   setSortField,
   setSortDirection,
   handleSort,
@@ -155,12 +159,15 @@ export const FileResultsView: React.FC<FileResultsViewProps> = ({
             sortField={filters.sortField}
             sortDirection={filters.sortDirection}
             customFilters={filters.customFilters}
+            playbookFilterLabel={filters.playbookFilterLabel}
+            playbookFileCount={filters.includePaths.length}
             onRatingFilterChange={setRatingFilter}
             onSearchFilterChange={setSearchFilter}
             onFileExtensionFilterChange={setFileExtensionFilter}
             onSortFieldChange={setSortField}
             onSortDirectionChange={setSortDirection}
             onCustomFiltersChange={setCustomFilters}
+            onClearPlaybookFilter={clearPlaybookFilesFilter}
             stats={stats}
             isMinimized={isLeftPanelMinimized}
           />
