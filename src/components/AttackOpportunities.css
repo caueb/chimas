@@ -243,6 +243,9 @@
 }
 
 .attack-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.2rem 0.5rem;
   border-radius: var(--r-sm);
   border: 1px solid var(--border);
@@ -250,6 +253,18 @@
   color: var(--text-accent);
   font-size: 0.72rem;
   font-weight: 600;
+  text-decoration: none;
+}
+
+a.attack-tool:hover {
+  border-color: var(--border-glow);
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+a.attack-tool i {
+  font-size: 0.6rem;
+  opacity: 0.85;
 }
 
 .attack-command-target {
