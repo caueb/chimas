@@ -46,9 +46,21 @@ function looksLikeBloodHoundHead(head: string): boolean {
   return /"meta"\s*:/.test(head) && /"data"\s*:/.test(head);
 }
 
-function looksLikeJsonHead(head: string): boolean {
-  const trimmed = head.trimStart();
-  return trimmed.startsWith('{') || trimmed.startsWith('[');
+/**
+ * True for real JSON documents. False for Snaffler text logs, which commonly
+ * start with `[File]`, `[Share]`, `[Warn]`, or `{Red}<rule>>(path)`.
+ */
+export function looksLikeJsonHead(head: string): boolean {
+  const trimmed = stripBOM(head).trimStart();
+  if (trimmed.startsWith('{')) {
+    if (/^\{(?:Red|Green|Yellow|Black)\}/i.test(trimmed)) return false;
+    return true;
+  }
+  if (trimmed.startsWith('[')) {
+    const inner = trimmed.slice(1).trimStart();
+    return inner.startsWith('{') || inner.startsWith('[') || inner.startsWith('"');
+  }
+  return false;
 }
 
 function formatCount(n: number): string {
@@ -124,10 +136,12 @@ export async function processUploadedFile(
   onProgress?.('Parsing Snaffler output…');
 
   if (treatAsJson) {
-    return {
-      kind: 'snaffler',
-      output: await parseSnafflerJsonFile(file, onProgress),
-    };
+    const output = await parseSnafflerJsonFile(file, onProgress);
+    const empty = output.results.length === 0 && output.shares.length === 0;
+    // .txt/.log files that only *looked* like JSON should still be tried as text.
+    if (!empty || fileType === 'json') {
+      return { kind: 'snaffler', output };
+    }
   }
 
   const acc = createSnafflerAccumulator();
